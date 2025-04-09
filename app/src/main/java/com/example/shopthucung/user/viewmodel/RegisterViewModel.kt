@@ -3,6 +3,7 @@ package com.example.shopthucung.user.viewmodel
 import android.app.Activity
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.shopthucung.user.model.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,71 +17,47 @@ class RegisterViewModel(
 ) : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
 
-    // Trạng thái gửi email xác nhận
-    private val _verificationEmailSent = MutableStateFlow(false)
-    val verificationEmailSent: StateFlow<Boolean> = _verificationEmailSent
+    private val _isRegistered = MutableStateFlow(false)
+    val isRegistered: StateFlow<Boolean> = _isRegistered
 
-    // Trạng thái đăng ký hoàn tất (email đã được xác minh)
-    private val _registrationComplete = MutableStateFlow(false)
-    val registrationComplete: StateFlow<Boolean> = _registrationComplete
+    private val _message = MutableStateFlow<String?>(null)
+    val message: StateFlow<String?> = _message
 
-    // Đăng ký và gửi email xác nhận
-    fun registerAndSendVerificationEmail(email: String, password: String, onResult: (Boolean, String?) -> Unit) {
+    fun registerUser(email: String, password: String, hoVaTen: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             try {
-                // Đăng ký người dùng với Firebase Authentication
+                println("RegisterViewModel: Attempting to register with email: $email")
                 val result = auth.createUserWithEmailAndPassword(email, password).await()
-                val user = result.user ?: throw IllegalStateException("Không thể tạo người dùng!")
-
-                // Gửi email xác minh
-                user.sendEmailVerification().await()
-
-                // Đăng xuất ngay sau khi gửi email xác minh
-                auth.signOut()
-
-                _verificationEmailSent.value = true
-                onResult(true, "Email xác minh đã được gửi! Vui lòng kiểm tra hộp thư và nhấp vào liên kết để kích hoạt tài khoản.")
+                val currentUser = result.user
+                if (currentUser != null) {
+                    val idUser = currentUser.uid
+                    println("RegisterViewModel: Registration successful, user UID: $idUser")
+                    val userData = User(
+                        diaChi = "",
+                        sdt = "",
+                        email = email,
+                        hoVaTen = hoVaTen,
+                        idUser = idUser,
+                        matKhau = password
+                    )
+                    // Sử dụng UID làm ID của document trong Firestore
+                    firestore.collection("user").document(idUser).set(userData).await()
+                    println("RegisterViewModel: Document created successfully for UID: $idUser")
+                    _isRegistered.value = true
+                    onResult(true, "Đăng ký thành công, vui lòng đăng nhập")
+                } else {
+                    println("RegisterViewModel: Registration failed, no user found")
+                    onResult(false, "Không thể đăng ký")
+                }
             } catch (e: Exception) {
-                // Nếu có lỗi, xóa tài khoản đã tạo (nếu tồn tại)
-                auth.currentUser?.delete()?.await()
+                println("RegisterViewModel: Registration failed with exception: ${e.message}")
+                _message.value = "Đăng ký thất bại: ${e.message}"
                 onResult(false, "Đăng ký thất bại: ${e.message}")
             }
         }
     }
 
-    // Kiểm tra trạng thái xác minh email
-    fun checkEmailVerification(email: String, password: String, onResult: (Boolean, String?) -> Unit) {
-        viewModelScope.launch {
-            try {
-                // Đăng nhập lại để kiểm tra trạng thái
-                auth.signInWithEmailAndPassword(email, password).await()
-                val currentUser = auth.currentUser
-                if (currentUser == null) {
-                    onResult(false, "Không thể đăng nhập để kiểm tra! Vui lòng thử lại.")
-                    return@launch
-                }
-
-                // Làm mới thông tin người dùng
-                currentUser.reload().await()
-
-                if (currentUser.isEmailVerified) {
-                    _verificationEmailSent.value = false
-                    _registrationComplete.value = true
-                    onResult(true, "Đăng ký thành công! Tài khoản đã được kích hoạt.")
-                } else {
-                    auth.signOut() // Đăng xuất nếu chưa xác minh
-                    onResult(false, "Email chưa được xác minh! Vui lòng kiểm tra hộp thư và nhấp vào liên kết.")
-                }
-            } catch (e: Exception) {
-                onResult(false, "Kiểm tra thất bại: ${e.message}")
-            }
-        }
-    }
-
-    // Đăng xuất người dùng
-    fun signOut() {
-        auth.signOut()
-        _verificationEmailSent.value = false
-        _registrationComplete.value = false
+    fun clearMessage() {
+        _message.value = null
     }
 }

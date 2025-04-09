@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.shopthucung.R
 import com.example.shopthucung.user.viewmodel.LoginViewModel
+import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -35,6 +36,30 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel) {
     var isLoading by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
+
+    // Lắng nghe thông báo từ LoginViewModel
+    val message by viewModel.message.collectAsState()
+
+    // Kiểm tra xem người dùng đã đăng nhập từ trước chưa
+    LaunchedEffect(Unit) {
+        val currentUser = FirebaseAuth.getInstance().currentUser
+        if (currentUser != null) {
+            println("LoginScreen: User already logged in, navigating to home")
+            navController.navigate("home") {
+                popUpTo(navController.graph.startDestinationId) { inclusive = true }
+            }
+        } else {
+            println("LoginScreen: No user logged in")
+        }
+    }
+
+    // Hiển thị thông báo lỗi nếu có
+    LaunchedEffect(message) {
+        message?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearMessage()
+        }
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -98,15 +123,16 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel) {
                     onClick = {
                         if (email.isNotBlank() && password.isNotBlank()) {
                             isLoading = true
-                            viewModel.loginUser(email, password) { success, error ->
+                            viewModel.loginUser(email, password) { success, result ->
                                 isLoading = false
                                 if (success) {
+                                    println("LoginScreen: Login successful, navigating to home")
                                     navController.navigate("home") {
                                         popUpTo(navController.graph.startDestinationId) { inclusive = true }
                                     }
                                 } else {
                                     coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(error ?: "Đăng nhập thất bại!")
+                                        snackbarHostState.showSnackbar(result ?: "Đăng nhập thất bại!")
                                     }
                                 }
                             }

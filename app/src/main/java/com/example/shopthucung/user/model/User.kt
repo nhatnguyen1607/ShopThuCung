@@ -5,10 +5,10 @@ import com.google.firebase.firestore.PropertyName
 
 @Keep
 data class User(
-    @PropertyName("Dia_chi") val diaChi: String = "",
-    @PropertyName("SDT") val sdt: String = "",
+    @PropertyName("diaChi") val diaChi: String = "",
+    @PropertyName("sdt") val sdt: String = "",
     @PropertyName("email") val email: String = "",
-    @PropertyName("ho_va_ten") val hoVaTen: String = "",
-    @PropertyName("id_user") val idUser: Long = 0L,
-    @PropertyName("mat_khau") val matKhau: String = ""
+    @PropertyName("hoVaTen") val hoVaTen: String = "",
+    @PropertyName("idUser") val idUser: String = "",
+    @PropertyName("matKhau") val matKhau: String = ""
 )

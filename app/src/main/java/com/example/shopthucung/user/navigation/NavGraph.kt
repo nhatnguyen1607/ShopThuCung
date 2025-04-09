@@ -27,7 +27,7 @@ fun NavGraph(navController: NavHostController) {
     val homeViewModel = HomeViewModel(firestore)
     NavHost(
         navController = navController,
-        startDestination = "home"
+        startDestination = "login"
     ) {
         composable("login") {
             LoginScreen(navController = navController, viewModel = loginViewModel)
@@ -43,9 +43,9 @@ fun NavGraph(navController: NavHostController) {
         ) {
             HomeScreen(navController = navController, viewModel = homeViewModel)
         }
-        composable("user/{userId}") { backStackEntry ->
-            val userId = backStackEntry.arguments?.getString("userId") ?: ""
-            UserScreen(navController = navController, userId = userId)
+        composable("user/{uid}") { backStackEntry ->
+            val uid = backStackEntry.arguments?.getString("uid") ?: ""
+            UserScreen(navController = navController, uid = uid)
         }
     }
 }

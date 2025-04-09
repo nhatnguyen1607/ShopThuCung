@@ -39,7 +39,6 @@ import com.google.firebase.auth.FirebaseAuth
 @Composable
 fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
     val searchQuery = remember { mutableStateOf("") }
-    val userId = FirebaseAuth.getInstance().currentUser?.email ?: ""
     Scaffold(
         topBar = {
             TopAppBar(
@@ -54,7 +53,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                             painter = painterResource(id = R.drawable.logo_petshop),
                             contentDescription = "Logo",
                             modifier = Modifier
-                                .size(50.dp)
+                                .size(80.dp)
                                 .padding(end = 12.dp)
                         )
                         OutlinedTextField(
@@ -122,7 +121,10 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                             tint = Color(0xFFA5D6A7)
                         )
                     }
-                    IconButton(onClick = { navController.navigate("user/$userId") }) {
+                    IconButton(onClick = {
+                        val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
+                        navController.navigate("user/$uid")
+                    }) {
                         Icon(
                             imageVector = Icons.Default.Person,
                             contentDescription = "Người dùng",
@@ -335,6 +337,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
         }
     )
 }
+
 @Composable
 fun ProductCard(
     price: Long, // Giá gốc
@@ -389,7 +392,10 @@ fun ProductCard(
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier
                                 .align(Alignment.TopStart)
-                                .background(Color(0xFFFFF59D), RoundedCornerShape(8.dp)) // Vàng nhạt
+                                .background(
+                                    Color(0xFFFFF59D),
+                                    RoundedCornerShape(8.dp)
+                                ) // Vàng nhạt
                                 .padding(horizontal = 6.dp, vertical = 4.dp)
                         )
                     }

@@ -31,25 +31,20 @@ import kotlinx.coroutines.launch
 fun RegisterScreen(navController: NavController, viewModel: RegisterViewModel) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
-    var confirmPassword by rememberSaveable { mutableStateOf("") }
+    var hoVaTen by rememberSaveable { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
 
-    // Theo dõi trạng thái gửi email xác minh và đăng ký hoàn tất
-    val verificationEmailSent by viewModel.verificationEmailSent.collectAsState()
-    val registrationComplete by viewModel.registrationComplete.collectAsState()
+    // Lắng nghe thông báo từ RegisterViewModel
+    val message by viewModel.message.collectAsState()
 
-    // Tự động chuyển hướng khi đăng ký hoàn tất
-    LaunchedEffect(registrationComplete) {
-        if (registrationComplete) {
-            coroutineScope.launch {
-                snackbarHostState.showSnackbar("Đăng ký thành công! Đang chuyển hướng...")
-                navController.navigate("login") {
-                    popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                }
-            }
+    // Hiển thị thông báo lỗi nếu có
+    LaunchedEffect(message) {
+        message?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearMessage()
         }
     }
 
@@ -60,7 +55,7 @@ fun RegisterScreen(navController: NavController, viewModel: RegisterViewModel) {
         Box(modifier = Modifier.fillMaxSize()) {
             Image(
                 painter = painterResource(id = R.drawable.pet_background),
-                contentDescription = "Ảnh nền thú cưng",
+                contentDescription = null,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop
             )
@@ -79,127 +74,76 @@ fun RegisterScreen(navController: NavController, viewModel: RegisterViewModel) {
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    text = "Đăng ký",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF4A90E2),
-                    modifier = Modifier.padding(bottom = 24.dp)
+                Text("Đăng ký", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4A90E2))
+                Spacer(modifier = Modifier.height(24.dp))
+
+                OutlinedTextField(
+                    value = hoVaTen,
+                    onValueChange = { hoVaTen = it },
+                    label = { Text("Họ và tên") },
+                    modifier = Modifier.fillMaxWidth()
                 )
 
-                if (!verificationEmailSent) {
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        label = { Text("Email") },
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
-                    )
+                Spacer(modifier = Modifier.height(16.dp))
 
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = { Text("Mật khẩu") },
-                        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        trailingIcon = {
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Icon(
-                                    imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                    contentDescription = null
-                                )
-                            }
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-                    )
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+                )
 
-                    OutlinedTextField(
-                        value = confirmPassword,
-                        onValueChange = { confirmPassword = it },
-                        label = { Text("Xác nhận mật khẩu") },
-                        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                        visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
-                        trailingIcon = {
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Icon(
-                                    imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                                    contentDescription = null
-                                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Mật khẩu") },
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                contentDescription = null
+                            )
+                        }
+                    },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Button(
+                    onClick = {
+                        if (email.isNotBlank() && password.isNotBlank() && hoVaTen.isNotBlank()) {
+                            isLoading = true
+                            viewModel.registerUser(email, password, hoVaTen) { success, result ->
+                                isLoading = false
+                                if (success) {
+                                    println("RegisterScreen: Registration successful, navigating to login")
+                                    navController.navigate("login") {
+                                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                                    }
+                                } else {
+                                    coroutineScope.launch {
+                                        snackbarHostState.showSnackbar(result ?: "Đăng ký thất bại!")
+                                    }
+                                }
                             }
-                        },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-                    )
-                } else if (!registrationComplete) {
-                    Text(
-                        text = "Email xác minh đã được gửi! Vui lòng kiểm tra hộp thư (bao gồm thư rác) và nhấp vào liên kết để kích hoạt tài khoản.",
-                        fontSize = 16.sp,
-                        color = Color.Black,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier.padding(top = 16.dp)
-                    )
-                } else {
-                    Text(
-                        text = "Đăng ký thành công! Đang chuyển hướng đến màn hình đăng nhập...",
-                        fontSize = 16.sp,
-                        color = Color.Black,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                        modifier = Modifier.padding(top = 16.dp)
-                    )
+                        } else {
+                            coroutineScope.launch { snackbarHostState.showSnackbar("Vui lòng nhập đầy đủ thông tin!") }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    enabled = !isLoading
+                ) {
+                    Text(if (isLoading) "Đang đăng ký..." else "Đăng ký", fontSize = 16.sp)
                 }
 
-                if (!registrationComplete) {
-                    Button(
-                        onClick = {
-                            if (isLoading) return@Button
-
-                            if (verificationEmailSent) {
-                                // Kiểm tra trạng thái xác minh email
-                                isLoading = true
-                                viewModel.checkEmailVerification(email, password) { success, message ->
-                                    isLoading = false
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(message ?: if (success) "Đăng ký thành công!" else "Xác minh thất bại!")
-                                    }
-                                }
-                            } else {
-                                if (email.isBlank() || password.isBlank() || confirmPassword.isBlank()) {
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar("Vui lòng nhập đầy đủ thông tin!")
-                                    }
-                                    return@Button
-                                }
-                                if (password != confirmPassword) {
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar("Mật khẩu không khớp!")
-                                    }
-                                    return@Button
-                                }
-                                isLoading = true
-                                viewModel.registerAndSendVerificationEmail(email, password) { success, message ->
-                                    isLoading = false
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(message ?: if (success) "Đã gửi email xác minh!" else "Đăng ký thất bại!")
-                                    }
-                                }
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth().padding(top = 32.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A90E2)),
-                        enabled = !isLoading // Chỉ vô hiệu hóa khi đang xử lý
-                    ) {
-                        Text(
-                            if (isLoading) "Đang xử lý..."
-                            else if (verificationEmailSent) "Kiểm tra xác minh"
-                            else "Đăng ký",
-                            fontSize = 16.sp
-                        )
-                    }
-                }
-
-                if (!verificationEmailSent) {
-                    TextButton(onClick = { if (!isLoading) navController.navigate("login") }) {
-                        Text("Đã có tài khoản? Đăng nhập")
-                    }
+                TextButton(onClick = { if (!isLoading) navController.navigate("login") }) {
+                    Text("Đã có tài khoản? Đăng nhập")
                 }
             }
         }

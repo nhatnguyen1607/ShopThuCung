@@ -1,5 +1,6 @@
 package com.example.shopthucung.user.view
 
+import android.R.id.message
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -21,24 +22,37 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.shopthucung.user.model.User
 import com.example.shopthucung.user.viewmodel.UserViewModel
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UserScreen(navController: NavController, userId: String) {
+fun UserScreen(navController: NavController, uid: String) {
     val db = FirebaseFirestore.getInstance()
-    // Khởi tạo UserViewModel trực tiếp
-    val viewModel: UserViewModel = viewModel { UserViewModel(db, userId) }
+    val viewModel: UserViewModel = viewModel { UserViewModel(db, uid) }
     val user by viewModel.user.collectAsState()
     val message by viewModel.message.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Thông tin cá nhân", "Cài đặt tài khoản")
 
-    // Hiển thị thông báo bằng Snackbar
     val snackbarHostState = remember { SnackbarHostState() }
+
+    // Làm mới dữ liệu mỗi khi UserScreen được hiển thị
+    LaunchedEffect(Unit) {
+        viewModel.refreshUser()
+    }
+
+    // Chuyển hướng về màn hình đăng nhập nếu không tìm thấy dữ liệu
     LaunchedEffect(message) {
         message?.let {
             snackbarHostState.showSnackbar(it)
+            if (it.contains("Không tìm thấy thông tin người dùng")) {
+                FirebaseAuth.getInstance().signOut()
+                navController.navigate("login") {
+                    popUpTo("user/$uid") { inclusive = true }
+                }
+            }
             viewModel.clearMessage()
         }
     }
@@ -69,66 +83,78 @@ fun UserScreen(navController: NavController, userId: String) {
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }, // Sử dụng snackbarHost thay vì scaffoldState
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = Color(0xFFFAFAFA)
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            // TabRow
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = Color(0xFFFAFAFA),
-                contentColor = Color(0xFFA5D6A7)
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+                contentAlignment = Alignment.Center
             ) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = {
-                            Text(
-                                text = title,
-                                fontSize = 16.sp,
-                                fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium,
-                                color = if (selectedTab == index) Color(0xFFA5D6A7) else Color(0xFF757575)
-                            )
+                CircularProgressIndicator(color = Color(0xFFA5D6A7))
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = Color(0xFFFAFAFA),
+                    contentColor = Color(0xFFA5D6A7)
+                ) {
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTab == index,
+                            onClick = { selectedTab = index },
+                            text = {
+                                Text(
+                                    text = title,
+                                    fontSize = 16.sp,
+                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium,
+                                    color = if (selectedTab == index) Color(0xFFA5D6A7) else Color(0xFF757575)
+                                )
+                            }
+                        )
+                    }
+                }
+
+                when (selectedTab) {
+                    0 -> PersonalInfoTab(user = user)
+                    1 -> AccountSettingsTab(
+                        user = user,
+                        onUpdateUser = { updatedUser: User ->
+                            viewModel.updateUser(updatedUser)
+                        },
+                        onChangePassword = { newPassword: String ->
+                            viewModel.changePassword(newPassword)
+                        },
+                        onDeleteAccount = { password: String ->
+                            viewModel.deleteAccount(password) {
+                                FirebaseAuth.getInstance().signOut()
+                                navController.navigate("login") {
+                                    popUpTo("user/$uid") { inclusive = true }
+                                }
+                            }
+                        },
+                        onLogout = {
+                            FirebaseAuth.getInstance().signOut()
+                            navController.navigate("login") {
+                                popUpTo("user/$uid") { inclusive = true }
+                            }
                         }
                     )
                 }
-            }
-
-            // Nội dung của tab
-            when (selectedTab) {
-                0 -> PersonalInfoTab(user = user, onUpdateUser = { updatedUser: User ->
-                    viewModel.updateUser(updatedUser)
-                })
-                1 -> AccountSettingsTab(
-                    user = user,
-                    onUpdateUser = { updatedUser: User ->
-                        viewModel.updateUser(updatedUser)
-                    },
-                    onChangePassword = { newPassword: String ->
-                        viewModel.changePassword(newPassword)
-                    },
-                    onDeleteAccount = {
-                        viewModel.deleteAccount { navController.popBackStack() }
-                    }
-                )
             }
         }
     }
 }
 
-// Tab 1: Thông tin cá nhân
 @Composable
-fun PersonalInfoTab(user: User?, onUpdateUser: (User) -> Unit) {
-    var hoTen by remember { mutableStateOf(user?.hoVaTen ?: "") }
-    var email by remember { mutableStateOf(user?.email ?: "") }
-    var soDienThoai by remember { mutableStateOf(user?.sdt ?: "") }
-    var diaChi by remember { mutableStateOf(user?.diaChi ?: "") }
-
+fun PersonalInfoTab(user: User?) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -146,24 +172,27 @@ fun PersonalInfoTab(user: User?, onUpdateUser: (User) -> Unit) {
 
         item {
             OutlinedTextField(
-                value = hoTen,
-                onValueChange = { hoTen = it },
+                value = user?.hoVaTen ?: "",
+                onValueChange = { /* Không cho phép chỉnh sửa */ },
                 label = { Text("Họ tên") },
                 modifier = Modifier.fillMaxWidth(),
+                enabled = false,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color(0xFFA5D6A7),
-                    unfocusedBorderColor = Color(0xFFE0E0E0)
+                    unfocusedBorderColor = Color(0xFFE0E0E0),
+                    disabledBorderColor = Color(0xFFE0E0E0),
+                    disabledTextColor = Color(0xFF757575)
                 )
             )
         }
 
         item {
             OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
+                value = user?.email ?: "",
+                onValueChange = { /* Không cho phép chỉnh sửa */ },
                 label = { Text("Email") },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = false, // Email đã xác thực, không cho chỉnh sửa
+                enabled = false,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color(0xFFA5D6A7),
                     unfocusedBorderColor = Color(0xFFE0E0E0),
@@ -179,13 +208,16 @@ fun PersonalInfoTab(user: User?, onUpdateUser: (User) -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
-                    value = soDienThoai,
-                    onValueChange = { soDienThoai = it },
+                    value = user?.sdt ?: "",
+                    onValueChange = { /* Không cho phép chỉnh sửa */ },
                     label = { Text("Số điện thoại") },
                     modifier = Modifier.weight(1f),
+                    enabled = false,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFFA5D6A7),
-                        unfocusedBorderColor = Color(0xFFE0E0E0)
+                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                        disabledBorderColor = Color(0xFFE0E0E0),
+                        disabledTextColor = Color(0xFF757575)
                     )
                 )
                 Spacer(modifier = Modifier.width(8.dp))
@@ -204,57 +236,47 @@ fun PersonalInfoTab(user: User?, onUpdateUser: (User) -> Unit) {
 
         item {
             OutlinedTextField(
-                value = diaChi,
-                onValueChange = { diaChi = it },
+                value = user?.diaChi ?: "",
+                onValueChange = { /* Không cho phép chỉnh sửa */ },
                 label = { Text("Địa chỉ giao hàng") },
                 modifier = Modifier.fillMaxWidth(),
+                enabled = false,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color(0xFFA5D6A7),
-                    unfocusedBorderColor = Color(0xFFE0E0E0)
+                    unfocusedBorderColor = Color(0xFFE0E0E0),
+                    disabledBorderColor = Color(0xFFE0E0E0),
+                    disabledTextColor = Color(0xFF757575)
                 )
             )
-        }
-
-        item {
-            Button(
-                onClick = {
-                    user?.let {
-                        val updatedUser = it.copy(
-                            hoVaTen = hoTen,
-                            sdt = soDienThoai,
-                            diaChi = diaChi
-                        )
-                        onUpdateUser(updatedUser)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFA5D6A7),
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Lưu thay đổi", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            }
         }
     }
 }
 
-// Tab 2: Cài đặt tài khoản
 @Composable
 fun AccountSettingsTab(
     user: User?,
     onUpdateUser: (User) -> Unit,
     onChangePassword: (String) -> Unit,
-    onDeleteAccount: () -> Unit
+    onDeleteAccount: (String) -> Unit,
+    onLogout: () -> Unit
 ) {
-    var hoTen by remember { mutableStateOf(user?.hoVaTen ?: "") }
-    var soDienThoai by remember { mutableStateOf(user?.sdt ?: "") }
-    var diaChi by remember { mutableStateOf(user?.diaChi ?: "") }
+    var hoTen by remember(user) { mutableStateOf(user?.hoVaTen ?: "") }
+    var soDienThoai by remember(user) { mutableStateOf(user?.sdt ?: "") }
+    var diaChi by remember(user) { mutableStateOf(user?.diaChi ?: "") }
     var currentPassword by remember { mutableStateOf("") }
     var newPassword by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var deletePassword by remember { mutableStateOf("") }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(user) {
+        user?.let {
+            hoTen = it.hoVaTen
+            soDienThoai = it.sdt
+            diaChi = it.diaChi
+        }
+    }
 
     LazyColumn(
         modifier = Modifier
@@ -314,6 +336,7 @@ fun AccountSettingsTab(
             Button(
                 onClick = {
                     user?.let {
+                        isLoading = true
                         val updatedUser = it.copy(
                             hoVaTen = hoTen,
                             sdt = soDienThoai,
@@ -323,13 +346,21 @@ fun AccountSettingsTab(
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
+                enabled = !isLoading && user != null,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFFA5D6A7),
                     contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Lưu thay đổi", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                } else {
+                    Text("Lưu thay đổi", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
 
@@ -412,6 +443,20 @@ fun AccountSettingsTab(
         }
 
         item {
+            OutlinedTextField(
+                value = deletePassword,
+                onValueChange = { deletePassword = it },
+                label = { Text("Nhập mật khẩu để xóa tài khoản") },
+                modifier = Modifier.fillMaxWidth(),
+                visualTransformation = PasswordVisualTransformation(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFFA5D6A7),
+                    unfocusedBorderColor = Color(0xFFE0E0E0)
+                )
+            )
+        }
+
+        item {
             Button(
                 onClick = { showDeleteDialog = true },
                 modifier = Modifier.fillMaxWidth(),
@@ -419,9 +464,33 @@ fun AccountSettingsTab(
                     containerColor = Color(0xFFF44336),
                     contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(12.dp),
+                enabled = deletePassword.isNotEmpty()
             ) {
                 Text("Xóa tài khoản", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            }
+        }
+
+        item {
+            Text(
+                text = "Đăng xuất",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF424242)
+            )
+        }
+
+        item {
+            Button(
+                onClick = { onLogout() },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFFFA726),
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Đăng xuất", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -434,7 +503,7 @@ fun AccountSettingsTab(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        onDeleteAccount()
+                        onDeleteAccount(deletePassword)
                         showDeleteDialog = false
                     },
                     colors = ButtonDefaults.textButtonColors(
@@ -455,5 +524,11 @@ fun AccountSettingsTab(
                 }
             }
         )
+    }
+
+    LaunchedEffect(message) {
+        if (message != null) {
+            isLoading = false
+        }
     }
 }

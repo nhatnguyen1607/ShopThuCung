@@ -3,83 +3,150 @@ package com.example.shopthucung.user.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.shopthucung.user.model.User
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class UserViewModel(private val db: FirebaseFirestore, private val userId: String) : ViewModel() {
+class UserViewModel(private val db: FirebaseFirestore, private val uid: String) : ViewModel() {
 
-    // Trạng thái người dùng
     private val _user = MutableStateFlow<User?>(null)
     val user: StateFlow<User?> = _user
 
-    // Trạng thái thông báo (thành công, lỗi, v.v.)
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message
+
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading: StateFlow<Boolean> = _isLoading
+
+    private val auth = FirebaseAuth.getInstance()
 
     init {
         fetchUser()
     }
 
-    // Lấy thông tin người dùng từ Firestore
-    private fun fetchUser() {
+    fun fetchUser() {
         viewModelScope.launch {
-            db.collection("user").document(userId).get()
+            _isLoading.value = true
+            println("UserViewModel: Fetching user data for uid: $uid")
+            db.collection("user").document(uid).get()
                 .addOnSuccessListener { document ->
-                    _user.value = document.toObject(User::class.java)
+                    if (document.exists()) {
+                        val userData = document.toObject(User::class.java)
+                        // Lấy email từ FirebaseAuth thay vì từ document
+                        val email = auth.currentUser?.email ?: ""
+                        _user.value = userData?.copy(email = email)
+                        println("UserViewModel: User data fetched successfully: ${_user.value}")
+                    } else {
+                        _message.value = "Không tìm thấy thông tin người dùng. Vui lòng đăng nhập lại."
+                        _user.value = null
+                        println("UserViewModel: No document found for uid: $uid")
+                    }
+                    _isLoading.value = false
                 }
                 .addOnFailureListener { exception ->
                     _message.value = "Lỗi khi lấy thông tin người dùng: ${exception.message}"
+                    _isLoading.value = false
+                    println("UserViewModel: Failed to fetch user data: ${exception.message}")
                 }
         }
     }
 
-    // Cập nhật thông tin người dùng
+    fun refreshUser() {
+        fetchUser()
+    }
+
     fun updateUser(updatedUser: User) {
         viewModelScope.launch {
-            db.collection("user").document(userId).set(updatedUser)
-                .addOnSuccessListener {
+            try {
+                db.collection("user").document(uid).update(
+                    mapOf(
+                        "diaChi" to updatedUser.diaChi,
+                        "sdt" to updatedUser.sdt,
+                        "hoVaTen" to updatedUser.hoVaTen,
+                    )
+                ).addOnSuccessListener {
                     _user.value = updatedUser
                     _message.value = "Cập nhật thông tin thành công"
-                }
-                .addOnFailureListener { exception ->
+                }.addOnFailureListener { exception ->
                     _message.value = "Lỗi khi cập nhật thông tin: ${exception.message}"
                 }
+            } catch (e: Exception) {
+                _message.value = "Lỗi khi cập nhật thông tin: ${e.message}"
+            }
         }
     }
 
-    // Đổi mật khẩu
     fun changePassword(newPassword: String) {
         viewModelScope.launch {
-            val currentUser = _user.value ?: return@launch
-            val updatedUser = currentUser.copy(matKhau = newPassword) // TODO: Mã hóa mật khẩu trước khi lưu
-            db.collection("user").document(userId).set(updatedUser)
+            val currentUser = auth.currentUser
+            val userData = _user.value
+
+            if (currentUser == null || userData == null) {
+                _message.value = "Không tìm thấy người dùng"
+                return@launch
+            }
+
+            // Cập nhật mật khẩu trong Firebase Authentication
+            currentUser.updatePassword(newPassword)
                 .addOnSuccessListener {
-                    _user.value = updatedUser
-                    _message.value = "Đổi mật khẩu thành công"
+                    // Sau khi cập nhật thành công trong Auth, cập nhật tiếp trong Firestore
+                    val updatedUser = userData.copy(matKhau = newPassword)
+                    db.collection("user").document(uid).set(updatedUser)
+                        .addOnSuccessListener {
+                            _user.value = updatedUser
+                            _message.value = "Đổi mật khẩu thành công"
+                        }
+                        .addOnFailureListener { exception ->
+                            _message.value = "Đổi mật khẩu trong Firestore thất bại: ${exception.message}"
+                        }
                 }
                 .addOnFailureListener { exception ->
-                    _message.value = "Lỗi khi đổi mật khẩu: ${exception.message}"
+                    _message.value = "Đổi mật khẩu trong Authentication thất bại: ${exception.message}"
                 }
         }
     }
 
-    // Xóa tài khoản
-    fun deleteAccount(onSuccess: () -> Unit) {
+
+    fun deleteAccount(password: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
-            db.collection("user").document(userId).delete()
-                .addOnSuccessListener {
-                    _message.value = "Xóa tài khoản thành công"
-                    onSuccess()
+            try {
+                val currentUser = auth.currentUser
+                if (currentUser == null) {
+                    _message.value = "Không tìm thấy người dùng để xóa"
+                    return@launch
                 }
-                .addOnFailureListener { exception ->
-                    _message.value = "Lỗi khi xóa tài khoản: ${exception.message}"
-                }
+
+                val email = currentUser.email ?: ""
+                val credential = com.google.firebase.auth.EmailAuthProvider.getCredential(email, password)
+                currentUser.reauthenticate(credential)
+                    .addOnSuccessListener {
+                        currentUser.delete()
+                            .addOnSuccessListener {
+                                db.collection("user").document(uid).delete()
+                                    .addOnSuccessListener {
+                                        _message.value = "Xóa tài khoản thành công"
+                                        onSuccess()
+                                    }
+                                    .addOnFailureListener { exception ->
+                                        _message.value = "Lỗi khi xóa dữ liệu trong Firestore: ${exception.message}"
+                                    }
+                            }
+                            .addOnFailureListener { exception ->
+                                _message.value = "Lỗi khi xóa tài khoản trong Authentication: ${exception.message}"
+                            }
+                    }
+                    .addOnFailureListener { exception ->
+                        _message.value = "Xác thực thất bại: ${exception.message}"
+                    }
+            } catch (e: Exception) {
+                _message.value = "Lỗi khi xóa tài khoản: ${e.message}"
+            }
         }
     }
 
-    // Xóa thông báo
     fun clearMessage() {
         _message.value = null
     }
