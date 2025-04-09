@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "925285074280",
+    "project_id": "shopthucung-8bd1d",
+    "storage_bucket": "shopthucung-8bd1d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:925285074280:android:5b9a4c1f0225f07f9202dd",
+        "android_client_info": {
+          "package_name": "com.example.shopthucung"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "925285074280-sk628b1looeh1gg0103a257uv7udedb0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.shopthucung",
+            "certificate_hash": "da2ecb787791bfe972e351b5698c830ba8ed6c2f"
+          }
+        },
+        {
+          "client_id": "925285074280-32mfmi5dcbhngubthcur51jr36kqj17u.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCr1QFk3wASFutv-Q8pNyr07PxRkr7sw1g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "925285074280-32mfmi5dcbhngubthcur51jr36kqj17u.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
