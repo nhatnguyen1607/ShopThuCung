@@ -1,10 +1,11 @@
-package com.example.shopthucung.user.model
+package com.example.shopthucung.model
 
 data class Product(
-    val anh_sp: String = "",
+    val anh_sp: String = "", // Đảm bảo là String
     val danh_gia: Float = 0f,
     val gia_sp: Long = 0L,
     val id_sanpham: Int = 0,
+    val firestoreId: String = "",
     val mo_ta: String = "",
     val so_luong_ban: Int = 0,
     val soluong: Int = 0,

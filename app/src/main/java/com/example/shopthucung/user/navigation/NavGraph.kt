@@ -17,6 +17,7 @@ import com.example.shopthucung.user.viewmodel.LoginViewModel
 import com.example.shopthucung.user.viewmodel.RegisterViewModel
 import com.google.firebase.firestore.FirebaseFirestore
 
+
 @SuppressLint("ContextCastToActivity")
 @Composable
 fun NavGraph(navController: NavHostController) {

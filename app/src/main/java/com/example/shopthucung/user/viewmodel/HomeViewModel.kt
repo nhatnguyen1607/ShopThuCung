@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.launch
-import com.example.shopthucung.user.model.Product
+import com.example.shopthucung.model.Product
 
 class HomeViewModel(private val db: FirebaseFirestore) : ViewModel() {
     // Danh sách sản phẩm cho các phần
