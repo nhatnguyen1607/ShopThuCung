@@ -59,8 +59,9 @@ fun ProductDetailScreen(
 
     // Lấy thông tin sản phẩm khi màn hình được tải
     LaunchedEffect(productId) {
-        product = viewModel.getProductById(productId)
-        product?.let {
+        val prod = viewModel.getProductFromListById(productId)
+        product = prod
+        prod?.let {
             name = it.ten_sp
             price = it.gia_sp.toString()
             description = it.mo_ta
@@ -68,9 +69,10 @@ fun ProductDetailScreen(
             soldQuantity = it.so_luong_ban.toString()
             rating = it.danh_gia.toString()
             discount = it.giam_gia.toString()
-            imageUrl = it.anh_sp // Lấy URL ảnh hiện tại
+            imageUrl = it.anh_sp
         }
     }
+
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },

@@ -29,8 +29,8 @@ fun AdminNavGraph(
                 navController = navController
             )
         }
-        composable("product_detail/{id}") { backStackEntry ->
-            val productId = backStackEntry.arguments?.getString("id") ?: ""
+        composable("product_detail/{firestoreId}") { backStackEntry ->
+            val productId = backStackEntry.arguments?.getString("firestoreId") ?: ""
             ProductDetailScreen(
                 productId = productId, // Đây là firestoreId
                 viewModel = productViewModel,

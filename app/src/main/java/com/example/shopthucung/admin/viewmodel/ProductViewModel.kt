@@ -21,7 +21,7 @@ class ProductViewModel : ViewModel() {
     }
 
     private fun fetchProducts() {
-        db.collection("products").addSnapshotListener { snapshot, error ->
+        db.collection("product").addSnapshotListener { snapshot, error ->
             if (error != null) {
                 Log.e("ProductViewModel", "Error fetching products: ${error.message}")
                 return@addSnapshotListener
@@ -43,15 +43,10 @@ class ProductViewModel : ViewModel() {
         }
     }
 
-    suspend fun getProductById(firestoreId: String): Product? {
-        return try {
-            val snapshot = db.collection("products").document(firestoreId).get().await()
-            snapshot.toObject(Product::class.java)?.copy(firestoreId = snapshot.id)
-        } catch (e: Exception) {
-            Log.e("ProductViewModel", "Error getting product $firestoreId: ${e.message}")
-            null
-        }
+    fun getProductFromListById(id: String): Product? {
+        return products.value.find { it.firestoreId == id }
     }
+
 
     fun updateProduct(product: Product) {
         viewModelScope.launch {
