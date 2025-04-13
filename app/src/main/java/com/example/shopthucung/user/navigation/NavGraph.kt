@@ -4,12 +4,16 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.example.shopthucung.user.view.HomeScreen
 import com.example.shopthucung.user.view.LoginScreen
+import com.example.shopthucung.user.view.ProductDetailScreen
 import com.example.shopthucung.user.view.RegisterScreen
 import com.example.shopthucung.user.view.UserScreen
 import com.example.shopthucung.user.viewmodel.HomeViewModel
@@ -46,6 +50,18 @@ fun NavGraph(navController: NavHostController) {
         composable("user/{uid}") { backStackEntry ->
             val uid = backStackEntry.arguments?.getString("uid") ?: ""
             UserScreen(navController = navController, uid = uid)
+        }
+        composable(
+            route = "productDetail/{productId}",
+            arguments = listOf(navArgument("productId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val productId = backStackEntry.arguments?.getInt("productId") ?: 0
+            ProductDetailScreen(
+                navController = navController,
+                productId = productId,
+                viewModel = viewModel(),
+                productDetailViewModel = viewModel()
+            )
         }
     }
 }

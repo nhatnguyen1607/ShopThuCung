@@ -3,63 +3,95 @@ package com.example.shopthucung.user.viewmodel
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.launch
 import com.example.shopthucung.user.model.Product
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
-class HomeViewModel(private val db: FirebaseFirestore) : ViewModel() {
-    // Danh sách sản phẩm cho các phần
+class HomeViewModel(private val db: FirebaseFirestore = FirebaseFirestore.getInstance()) : ViewModel() {
+    // State for product lists
     val trendingProducts = mutableStateOf<List<Product>>(emptyList())
     val newProducts = mutableStateOf<List<Product>>(emptyList())
     val topRatedProducts = mutableStateOf<List<Product>>(emptyList())
+
+    // State for loading and error handling
+    val isLoading = mutableStateOf(false)
+    val errorMessage = mutableStateOf<String?>(null)
 
     init {
         fetchProducts()
     }
 
-    private fun fetchProducts() {
-        // Lấy sản phẩm nổi bật (dựa trên số lượng bán)
+    fun fetchProducts() {
+        isLoading.value = true
+        errorMessage.value = null
+
+        // Fetch trending products (based on sales)
         viewModelScope.launch {
-            db.collection("product")
-                .orderBy("so_luong_ban", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                .limit(3)
-                .get()
-                .addOnSuccessListener { result ->
-                    val products = result.toObjects(Product::class.java)
-                    trendingProducts.value = products
-                }
-                .addOnFailureListener { exception ->
-                    // Xử lý lỗi (có thể hiển thị thông báo)
-                }
+            try {
+                val trendingResult = db.collection("product")
+                    .orderBy("so_luong_ban", Query.Direction.DESCENDING)
+                    .limit(3)
+                    .get()
+                    .await()
+                trendingProducts.value = trendingResult.toObjects(Product::class.java)
+            } catch (e: Exception) {
+                errorMessage.value = "Lỗi khi tải sản phẩm nổi bật: ${e.message}"
+            }
         }
 
-        // Lấy sản phẩm mới (dựa trên ID sản phẩm, giả sử ID mới nhất là mới nhất)
+        // Fetch new products (based on product ID)
         viewModelScope.launch {
-            db.collection("product")
-                .orderBy("id_sanpham", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                .limit(3)
-                .get()
-                .addOnSuccessListener { result ->
-                    val products = result.toObjects(Product::class.java)
-                    newProducts.value = products
-                }
-                .addOnFailureListener { exception ->
-                    // Xử lý lỗi
-                }
+            try {
+                val newResult = db.collection("product")
+                    .orderBy("id_sanpham", Query.Direction.DESCENDING)
+                    .limit(3)
+                    .get()
+                    .await()
+                newProducts.value = newResult.toObjects(Product::class.java)
+            } catch (e: Exception) {
+                errorMessage.value = "Lỗi khi tải sản phẩm mới: ${e.message}"
+            }
         }
 
-        // Lấy sản phẩm xếp hạng cao (dựa trên đánh giá)
+        // Fetch top-rated products (based on rating)
         viewModelScope.launch {
-            db.collection("product")
-                .orderBy("danh_gia", com.google.firebase.firestore.Query.Direction.DESCENDING)
-                .limit(3)
-                .get()
-                .addOnSuccessListener { result ->
-                    val products = result.toObjects(Product::class.java)
-                    topRatedProducts.value = products
-                }
-                .addOnFailureListener { exception ->
-                    // Xử lý lỗi
+            try {
+                val topRatedResult = db.collection("product")
+                    .orderBy("danh_gia", Query.Direction.DESCENDING)
+                    .limit(3)
+                    .get()
+                    .await()
+                topRatedProducts.value = topRatedResult.toObjects(Product::class.java)
+            } catch (e: Exception) {
+                errorMessage.value = "Lỗi khi tải sản phẩm xếp hạng cao: ${e.message}"
+            } finally {
+                isLoading.value = false
+            }
+        }
+    }
+
+    // Function to refresh data
+    fun refresh() {
+        fetchProducts()
+    }
+
+    // Function to add product to cart (assuming cart is stored in Firestore)
+    fun addToCart(product: Product) {
+        viewModelScope.launch {
+            val userId = "current_user_id" // Replace with actual user ID from Firebase Auth
+            val cartItem = hashMapOf(
+                "userId" to userId,
+                "productId" to product.id_sanpham,
+                "quantity" to 1,
+                "product" to product
+            )
+            db.collection("cart")
+                .document("${userId}_${product.id_sanpham}")
+                .set(cartItem)
+                .addOnFailureListener { e ->
+                    errorMessage.value = "Lỗi khi thêm vào giỏ hàng: ${e.message}"
                 }
         }
     }

@@ -107,14 +107,14 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                             tint = Color(0xFFA5D6A7)
                         )
                     }
-                    IconButton(onClick = { /* TODO: Chuyển sang màn hình Giỏ hàng */ }) {
+                    IconButton(onClick = { navController.navigate("cart") }) {
                         Icon(
                             imageVector = Icons.Default.ShoppingCart,
                             contentDescription = "Giỏ hàng",
                             tint = Color(0xFFA5D6A7)
                         )
                     }
-                    IconButton(onClick = { /* TODO: Chuyển sang màn hình Thông báo */ }) {
+                    IconButton(onClick = { navController.navigate("notifications") }) {
                         Icon(
                             imageVector = Icons.Default.Notifications,
                             contentDescription = "Thông báo",
@@ -149,7 +149,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                     horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
                     Button(
-                        onClick = { /* TODO: Xử lý khi nhấn "Thú cưng" */ },
+                        onClick = { navController.navigate("category/pets") },
                         modifier = Modifier
                             .weight(1f)
                             .height(50.dp)
@@ -168,7 +168,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                         )
                     }
                     Button(
-                        onClick = { /* TODO: Xử lý khi nhấn "Đồ dùng thú cưng" */ },
+                        onClick = { navController.navigate("category/accessories") },
                         modifier = Modifier
                             .weight(1f)
                             .height(50.dp)
@@ -207,7 +207,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF424242)
                             )
-                            TextButton(onClick = { /* TODO: Xem tất cả */ }) {
+                            TextButton(onClick = { navController.navigate("trending/all") }) {
                                 Text(
                                     text = "Xem tất cả",
                                     color = Color(0xFFF44336), // Đỏ
@@ -228,8 +228,10 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                                     price = product.gia_sp,
                                     name = product.ten_sp,
                                     imageUrl = product.anh_sp,
-                                    isNew = product.so_luong_ban == 0, // Đảm bảo so_luong_ban là String
-                                    discount = product.giam_gia
+                                    isNew = product.so_luong_ban == 0,
+                                    discount = product.giam_gia,
+                                    productId = product.id_sanpham,
+                                    navController = navController
                                 )
                             }
                         }
@@ -254,7 +256,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF424242)
                             )
-                            TextButton(onClick = { /* TODO: Xem tất cả */ }) {
+                            TextButton(onClick = { navController.navigate("new/all") }) {
                                 Text(
                                     text = "Xem tất cả",
                                     color = Color(0xFFF44336),
@@ -276,7 +278,9 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                                     name = product.ten_sp,
                                     imageUrl = product.anh_sp,
                                     isNew = true,
-                                    discount = product.giam_gia
+                                    discount = product.giam_gia,
+                                    productId = product.id_sanpham,
+                                    navController = navController
                                 )
                             }
                         }
@@ -301,7 +305,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                                 fontWeight = FontWeight.Bold,
                                 color = Color(0xFF424242)
                             )
-                            TextButton(onClick = { /* TODO: Xem tất cả */ }) {
+                            TextButton(onClick = { navController.navigate("toprated/all") }) {
                                 Text(
                                     text = "Xem tất cả",
                                     color = Color(0xFFF44336),
@@ -323,7 +327,9 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                                     name = product.ten_sp,
                                     imageUrl = product.anh_sp,
                                     isNew = false,
-                                    discount = product.giam_gia
+                                    discount = product.giam_gia,
+                                    productId = product.id_sanpham,
+                                    navController = navController
                                 )
                             }
                         }
@@ -340,18 +346,20 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
 
 @Composable
 fun ProductCard(
-    price: Long, // Giá gốc
+    price: Long,
     name: String,
     imageUrl: String,
     isNew: Boolean,
-    discount: Int // Phần trăm giảm giá
+    discount: Int,
+    productId: Int,
+    navController: NavController
 ) {
     Card(
         modifier = Modifier
-            .width(160.dp) // Tăng chiều rộng
+            .width(160.dp)
             .padding(vertical = 8.dp)
-            .shadow(6.dp, RoundedCornerShape(16.dp)) // Bóng đổ mạnh hơn
-            .clickable { /* TODO: Chuyển đến chi tiết sản phẩm */ },
+            .shadow(6.dp, RoundedCornerShape(16.dp))
+            .clickable { navController.navigate("productDetail/$productId") },
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color.White
@@ -360,19 +368,18 @@ fun ProductCard(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp) // Tăng padding
+                .padding(12.dp)
         ) {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Hình ảnh sản phẩm
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(120.dp) // Tăng chiều cao hình ảnh
+                        .height(120.dp)
                         .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFE0E0E0)) // Nền xám nhạt nếu không tải được ảnh
+                        .background(Color(0xFFE0E0E0))
                 ) {
                     AsyncImage(
                         model = imageUrl,
@@ -383,7 +390,6 @@ fun ProductCard(
                         error = painterResource(R.drawable.placeholder_image)
                     )
 
-                    // Nhãn giảm giá ở góc trái trên
                     if (discount > 0) {
                         Text(
                             text = "-$discount%",
@@ -395,7 +401,7 @@ fun ProductCard(
                                 .background(
                                     Color(0xFFFFF59D),
                                     RoundedCornerShape(8.dp)
-                                ) // Vàng nhạt
+                                )
                                 .padding(horizontal = 6.dp, vertical = 4.dp)
                         )
                     }
@@ -403,7 +409,6 @@ fun ProductCard(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Tên sản phẩm
                 Text(
                     text = name,
                     fontSize = 16.sp,
@@ -414,24 +419,22 @@ fun ProductCard(
 
                 Spacer(modifier = Modifier.height(6.dp))
 
-                // Giá gốc (gạch ngang)
                 Text(
                     text = "${price.formatWithComma()} đ",
                     fontSize = 14.sp,
-                    color = Color(0xFF757575), // Xám nhạt
+                    color = Color(0xFF757575),
                     style = TextStyle(textDecoration = TextDecoration.LineThrough)
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                // Giá đã giảm
                 if (discount > 0) {
                     val discountedPrice = price - (price * discount / 100)
                     Text(
                         text = "${discountedPrice.formatWithComma()} đ",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFF44336) // Đỏ
+                        color = Color(0xFFF44336)
                     )
                 } else {
                     Text(
@@ -443,7 +446,6 @@ fun ProductCard(
                 }
             }
 
-            // Nhãn "Mới" ở góc trên bên phải
             if (isNew) {
                 Text(
                     text = "Mới",
@@ -452,7 +454,7 @@ fun ProductCard(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .background(Color(0xFFF8BBD0), RoundedCornerShape(8.dp)) // Hồng nhạt
+                        .background(Color(0xFFF8BBD0), RoundedCornerShape(8.dp))
                         .padding(horizontal = 6.dp, vertical = 4.dp)
                 )
             }
