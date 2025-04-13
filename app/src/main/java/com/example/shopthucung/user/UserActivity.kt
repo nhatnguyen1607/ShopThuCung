@@ -1,4 +1,4 @@
-package com.example.shopthucung
+package com.example.shopthucung.user
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -14,7 +14,7 @@ import com.example.shopthucung.ui.theme.ShopThuCungTheme
 import com.example.shopthucung.user.navigation.NavGraph
 import com.google.firebase.FirebaseApp
 
-class MainActivity : ComponentActivity() {
+class UserActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 

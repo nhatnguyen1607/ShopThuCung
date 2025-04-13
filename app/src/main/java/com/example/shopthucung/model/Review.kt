@@ -1,4 +1,4 @@
-package com.example.shopthucung.user.model
+package com.example.shopthucung.model
 
 import com.google.firebase.Timestamp
 

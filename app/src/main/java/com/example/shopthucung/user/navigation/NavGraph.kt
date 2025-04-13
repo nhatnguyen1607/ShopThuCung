@@ -11,11 +11,13 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
+import com.example.shopthucung.user.view.CartScreen
 import com.example.shopthucung.user.view.HomeScreen
 import com.example.shopthucung.user.view.LoginScreen
 import com.example.shopthucung.user.view.ProductDetailScreen
 import com.example.shopthucung.user.view.RegisterScreen
 import com.example.shopthucung.user.view.UserScreen
+import com.example.shopthucung.user.viewmodel.CartViewModel
 import com.example.shopthucung.user.viewmodel.HomeViewModel
 import com.example.shopthucung.user.viewmodel.LoginViewModel
 import com.example.shopthucung.user.viewmodel.RegisterViewModel
@@ -29,6 +31,7 @@ fun NavGraph(navController: NavHostController) {
     val loginViewModel = LoginViewModel(firestore, activity)
     val registerViewModel = RegisterViewModel(firestore, activity)
     val homeViewModel = HomeViewModel(firestore)
+    val cartViewModel = CartViewModel()
     NavHost(
         navController = navController,
         startDestination = "login"
@@ -61,6 +64,12 @@ fun NavGraph(navController: NavHostController) {
                 productId = productId,
                 viewModel = viewModel(),
                 productDetailViewModel = viewModel()
+            )
+        }
+        composable(route = "cart") {
+            CartScreen(
+                navController = navController,
+                cartViewModel = viewModel()
             )
         }
     }

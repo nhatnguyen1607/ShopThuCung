@@ -2,9 +2,9 @@ package com.example.shopthucung.user.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.shopthucung.user.model.Product
-import com.example.shopthucung.user.model.Review
-import com.example.shopthucung.user.model.User
+import com.example.shopthucung.model.Product
+import com.example.shopthucung.model.Review
+import com.example.shopthucung.model.User
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -1,6 +1,7 @@
 package com.example.shopthucung.user.view
 
-import androidx.compose.foundation.Image
+import android.annotation.SuppressLint
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -14,6 +15,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -28,28 +31,86 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.shopthucung.R
-import com.example.shopthucung.user.model.Product
-import com.example.shopthucung.user.model.Review
-import com.example.shopthucung.user.model.User
-import com.example.shopthucung.user.viewmodel.HomeViewModel
+import com.example.shopthucung.model.Review
+import com.example.shopthucung.model.User
+import com.example.shopthucung.user.viewmodel.CartViewModel
 import com.example.shopthucung.user.viewmodel.ProductDetailViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
 import com.google.firebase.Timestamp
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
+@SuppressLint("StateFlowValueCalledInComposition")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductDetailScreen(
     navController: NavController,
     productId: Int,
-    viewModel: HomeViewModel,
-    productDetailViewModel: ProductDetailViewModel = viewModel() // Inject ViewModel
+    viewModel: CartViewModel,
+    productDetailViewModel: ProductDetailViewModel = viewModel()
 ) {
-    // Collect states from ProductDetailViewModel
     val productState = productDetailViewModel.productState.collectAsState()
     val reviewsState = productDetailViewModel.reviewsState.collectAsState()
     val usersState = productDetailViewModel.usersState.collectAsState()
     val errorMessage = productDetailViewModel.errorMessage.collectAsState()
+    val cartErrorMessage = viewModel.errorMessage.collectAsState()
+    val cartSuccessMessage = viewModel.successMessage.collectAsState()
+
+
+    val coroutineScope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(Unit) {
+        productDetailViewModel.errorMessage.collectLatest { error ->
+            if (error != null) {
+                Log.d("ProductDetailScreen", "Error message from ProductDetailViewModel: $error")
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = error,
+                        actionLabel = null,
+                        withDismissAction = false,
+                        duration = SnackbarDuration.Short
+                    )
+                    viewModel.clearMessages()
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        viewModel.errorMessage.collectLatest { error ->
+            if (error != null) {
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = error,
+                        actionLabel = null,
+                        withDismissAction = false,
+                        duration = SnackbarDuration.Short
+                    )
+                    viewModel.clearMessages()
+                }
+            }
+        }
+    }
+
+    // Hiển thị thông báo thành công từ CartViewModel
+    LaunchedEffect(Unit) {
+        viewModel.successMessage.collectLatest { success ->
+            if (success != null) {
+                Log.d("ProductDetailScreen", "Cart success message: $success")
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar(
+                        message = success,
+                        actionLabel = null,
+                        withDismissAction = false,
+                        duration = SnackbarDuration.Short
+                    )
+                    viewModel.clearMessages()
+                }
+            }
+        }
+    }
 
     // Fetch data when productId changes
     LaunchedEffect(productId) {
@@ -75,8 +136,30 @@ fun ProductDetailScreen(
                 )
             )
         },
-        containerColor = Color(0xFFFAFAFA)
-    ) { paddingValues ->
+        containerColor = Color(0xFFFAFAFA),
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                snackbar = { data ->
+                    Snackbar(
+                        modifier = Modifier.padding(16.dp),
+                        containerColor = if (data.visuals.message.contains("Lỗi")) {
+                            Color(0xFFF44336)
+                        } else {
+                            Color(0xFF4CAF50)
+                        },
+                        contentColor = Color.White,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = data.visuals.message,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            )
+        }) { paddingValues ->
         when {
             productState.value == null && errorMessage.value == null -> {
                 Box(
@@ -88,6 +171,7 @@ fun ProductDetailScreen(
                     CircularProgressIndicator()
                 }
             }
+
             errorMessage.value != null -> {
                 Box(
                     modifier = Modifier
@@ -102,6 +186,7 @@ fun ProductDetailScreen(
                     )
                 }
             }
+
             else -> {
                 val product = productState.value!!
                 Column(
@@ -156,7 +241,8 @@ fun ProductDetailScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         if (product.giam_gia > 0) {
-                            val discountedPrice = product.gia_sp - (product.gia_sp * product.giam_gia / 100)
+                            val discountedPrice =
+                                product.gia_sp - (product.gia_sp * product.giam_gia / 100)
                             Text(
                                 text = "${product.gia_sp.formatWithComma()} đ",
                                 fontSize = 16.sp,
@@ -273,12 +359,22 @@ fun ProductDetailScreen(
                         users = usersState.value
                     )
 
-                    // Display error message from ViewModel if any
-                    viewModel.errorMessage.value?.let { error ->
+                    // Display error/success message from CartViewModel if any
+                    cartErrorMessage.value?.let { error ->
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = error,
+                            text = "Lỗi: $error",
                             color = Color.Red,
+                            fontSize = 14.sp,
+                            modifier = Modifier.fillMaxWidth(),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                        )
+                    }
+                    cartSuccessMessage.value?.let { success ->
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Thành công: $success",
+                            color = Color.Green,
                             fontSize = 14.sp,
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
@@ -302,7 +398,6 @@ fun RatingSection(
             .background(Color.White, RoundedCornerShape(8.dp))
             .padding(16.dp)
     ) {
-        // Title and Average Rating
         Text(
             text = "ĐÁNH GIÁ",
             fontSize = 20.sp,
@@ -325,7 +420,9 @@ fun RatingSection(
                     Icon(
                         painter = painterResource(R.drawable.ic_star),
                         contentDescription = "Sao",
-                        tint = if (index < averageRating.toInt()) Color(0xFFFFC107) else Color(0xFFE0E0E0),
+                        tint = if (index < averageRating.toInt()) Color(0xFFFFC107) else Color(
+                            0xFFE0E0E0
+                        ),
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -340,7 +437,6 @@ fun RatingSection(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Rating Distribution
         val ratingDistribution = IntArray(5) { 0 }
         reviews.forEach { review ->
             if (review.rating in 1..5) {
@@ -389,7 +485,6 @@ fun RatingSection(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Filter Buttons
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -404,7 +499,6 @@ fun RatingSection(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Display Reviews
         if (reviews.isNotEmpty()) {
             reviews.forEach { review ->
                 val user = users[review.idUser]
@@ -419,9 +513,7 @@ fun RatingSection(
                             .size(40.dp)
                             .clip(CircleShape)
                             .background(Color(0xFFE0E0E0))
-                    ) {
-                        // Placeholder for user avatar
-                    }
+                    )
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(
@@ -436,7 +528,9 @@ fun RatingSection(
                                 Icon(
                                     painter = painterResource(R.drawable.ic_star),
                                     contentDescription = "Sao",
-                                    tint = if (index < review.rating) Color(0xFFFFC107) else Color(0xFFE0E0E0),
+                                    tint = if (index < review.rating) Color(0xFFFFC107) else Color(
+                                        0xFFE0E0E0
+                                    ),
                                     modifier = Modifier.size(14.dp)
                                 )
                             }
@@ -495,3 +589,8 @@ fun formatTimestamp(timestamp: Timestamp?): String {
         "Lỗi định dạng thời gian: ${e.message}"
     }
 }
+
+//fun Int.formatWithComma(): String {
+//    val formatter = DecimalFormat("#,###")
+//    return formatter.format(this)
+//}

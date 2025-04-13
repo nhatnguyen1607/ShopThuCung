@@ -1,4 +1,4 @@
-package com.example.shopthucung.user.model
+package com.example.shopthucung.model
 
 import androidx.annotation.Keep
 import com.google.firebase.firestore.PropertyName

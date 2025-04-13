@@ -3,7 +3,7 @@ package com.example.shopthucung.user.viewmodel
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.shopthucung.user.model.Product
+import com.example.shopthucung.model.Product
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.launch
@@ -75,24 +75,5 @@ class HomeViewModel(private val db: FirebaseFirestore = FirebaseFirestore.getIns
     // Function to refresh data
     fun refresh() {
         fetchProducts()
-    }
-
-    // Function to add product to cart (assuming cart is stored in Firestore)
-    fun addToCart(product: Product) {
-        viewModelScope.launch {
-            val userId = "current_user_id" // Replace with actual user ID from Firebase Auth
-            val cartItem = hashMapOf(
-                "userId" to userId,
-                "productId" to product.id_sanpham,
-                "quantity" to 1,
-                "product" to product
-            )
-            db.collection("cart")
-                .document("${userId}_${product.id_sanpham}")
-                .set(cartItem)
-                .addOnFailureListener { e ->
-                    errorMessage.value = "Lỗi khi thêm vào giỏ hàng: ${e.message}"
-                }
-        }
     }
 }
