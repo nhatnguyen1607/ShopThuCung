@@ -11,7 +11,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
@@ -34,8 +33,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.shopthucung.R
+import com.example.shopthucung.model.CartItem
 import com.example.shopthucung.user.viewmodel.CartViewModel
 import kotlinx.coroutines.launch
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import java.text.DecimalFormat
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,12 +50,15 @@ fun CartScreen(
     val errorMessage = cartViewModel.errorMessage.collectAsState()
     val successMessage = cartViewModel.successMessage.collectAsState()
 
-
     // Tính tổng tiền
     val totalPrice = cartItems.sumOf { item ->
-        val price = item.product?.gia_sp ?: 0
-        val quantity = item.quantity
-        price * quantity
+        val product = item.product ?: return@sumOf 0L
+        val price = if (product.giam_gia > 0) {
+            product.gia_sp - (product.gia_sp * product.giam_gia / 100)
+        } else {
+            product.gia_sp
+        }
+        price * item.quantity
     }
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -87,6 +92,7 @@ fun CartScreen(
             }
         }
     }
+
     // Gọi fetchCartItems khi vào màn hình
     LaunchedEffect(Unit) {
         cartViewModel.fetchCartItems()
@@ -99,7 +105,7 @@ fun CartScreen(
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Quay lại"
                         )
                     }
@@ -141,7 +147,13 @@ fun CartScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     Button(
                         onClick = {
-                            navController.navigate("checkout")
+                            // Mã hóa danh sách cartItems thành JSON
+                            val cartItemsJson = cartItems.toJson()
+                            val encodedCartItems = URLEncoder.encode(
+                                cartItemsJson,
+                                StandardCharsets.UTF_8.toString()
+                            )
+                            navController.navigate("checkout?cartItems=$encodedCartItems")
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -160,6 +172,29 @@ fun CartScreen(
                     }
                 }
             }
+        },
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                snackbar = { data ->
+                    Snackbar(
+                        modifier = Modifier.padding(16.dp),
+                        containerColor = if (data.visuals.message.contains("Lỗi")) {
+                            Color(0xFFF44336)
+                        } else {
+                            Color(0xFF4CAF50)
+                        },
+                        contentColor = Color.White,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(
+                            text = data.visuals.message,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            )
         }
     ) { paddingValues ->
         Column(
@@ -167,7 +202,6 @@ fun CartScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-
             if (cartItems.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -191,8 +225,12 @@ fun CartScreen(
                     items(cartItems) { cartItem ->
                         CartItemRow(
                             cartItem = cartItem,
-                            onIncreaseQuantity = { cartViewModel.updateQuantity(cartItem, cartItem.quantity + 1) },
-                            onDecreaseQuantity = { cartViewModel.updateQuantity(cartItem, cartItem.quantity - 1) },
+                            onIncreaseQuantity = {
+                                cartViewModel.updateQuantity(cartItem, cartItem.quantity + 1)
+                            },
+                            onDecreaseQuantity = {
+                                cartViewModel.updateQuantity(cartItem, cartItem.quantity - 1)
+                            },
                             onRemoveItem = { cartViewModel.removeCartItem(cartItem) }
                         )
                     }
@@ -204,7 +242,7 @@ fun CartScreen(
 
 @Composable
 fun CartItemRow(
-    cartItem: CartViewModel.CartItem,
+    cartItem: CartItem,
     onIncreaseQuantity: () -> Unit,
     onDecreaseQuantity: () -> Unit,
     onRemoveItem: () -> Unit
@@ -313,8 +351,25 @@ fun CartItemRow(
     }
 }
 
-// Hàm hỗ trợ định dạng giá tiền
-fun Int.formatWithComma(): String {
-    val formatter = DecimalFormat("#,###")
-    return formatter.format(this)
+// Hàm tiện ích để mã hóa cartItems thành JSON
+fun List<CartItem>.toJson(): String {
+    val items = this.joinToString(",") { cartItem ->
+        val product = cartItem.product ?: return@joinToString "{}"
+        """{
+            "product": {
+                "id_sanpham": "${product.id_sanpham}",
+                "ten_sp": "${product.ten_sp.replace("\"", "\\\"")}",
+                "gia_sp": ${product.gia_sp},
+                "giam_gia": ${product.giam_gia},
+                "anh_sp": "${product.anh_sp}",
+                "mo_ta": "${product.mo_ta.replace("\"", "\\\"")}",
+                "soluong": ${product.soluong},
+                "so_luong_ban": ${product.so_luong_ban},
+                "danh_gia": ${product.danh_gia}
+            },
+            "quantity": ${cartItem.quantity},
+            "cartIndex": ${cartItem.cartIndex}
+        }"""
+    }
+    return "[$items]"
 }

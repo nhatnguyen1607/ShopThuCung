@@ -1,3 +1,4 @@
+
 package com.example.shopthucung.user.viewmodel
 
 import android.util.Log
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import com.example.shopthucung.model.CartItem
 
 class CartViewModel : ViewModel() {
     private val db = Firebase.firestore
@@ -28,15 +30,6 @@ class CartViewModel : ViewModel() {
     // Trạng thái cho thông báo thành công
     private val _successMessage = MutableStateFlow<String?>(null)
     val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
-
-    // Data class để lưu trữ thông tin giỏ hàng
-    data class CartItem(
-        val userId: String = "",
-        val productId: Int = 0,
-        val quantity: Int = 0,
-        val product: Product? = null,
-        val cartIndex: Int = 0
-    )
 
     fun addToCart(product: Product) {
         Log.d("CartViewModel", "Bắt đầu addToCart cho sản phẩm: ${product.ten_sp}")

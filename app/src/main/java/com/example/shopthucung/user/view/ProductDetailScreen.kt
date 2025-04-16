@@ -31,15 +31,19 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.shopthucung.R
+import com.example.shopthucung.model.Product
 import com.example.shopthucung.model.Review
 import com.example.shopthucung.model.User
 import com.example.shopthucung.user.viewmodel.CartViewModel
+import com.example.shopthucung.user.viewmodel.OrderViewModel
 import com.example.shopthucung.user.viewmodel.ProductDetailViewModel
-import java.text.SimpleDateFormat
-import java.util.Locale
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
+import java.text.SimpleDateFormat
+import java.util.*
 
 @SuppressLint("StateFlowValueCalledInComposition")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -48,6 +52,7 @@ fun ProductDetailScreen(
     navController: NavController,
     productId: Int,
     viewModel: CartViewModel,
+    orderViewModel: OrderViewModel = viewModel(),
     productDetailViewModel: ProductDetailViewModel = viewModel()
 ) {
     val productState = productDetailViewModel.productState.collectAsState()
@@ -57,62 +62,25 @@ fun ProductDetailScreen(
     val cartErrorMessage = viewModel.errorMessage.collectAsState()
     val cartSuccessMessage = viewModel.successMessage.collectAsState()
 
-
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
         productDetailViewModel.errorMessage.collectLatest { error ->
             if (error != null) {
-                Log.d("ProductDetailScreen", "Error message from ProductDetailViewModel: $error")
                 coroutineScope.launch {
                     snackbarHostState.showSnackbar(
                         message = error,
-                        actionLabel = null,
-                        withDismissAction = false,
                         duration = SnackbarDuration.Short
                     )
-                    viewModel.clearMessages()
+                    orderViewModel.clearMessages()
                 }
             }
         }
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.errorMessage.collectLatest { error ->
-            if (error != null) {
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar(
-                        message = error,
-                        actionLabel = null,
-                        withDismissAction = false,
-                        duration = SnackbarDuration.Short
-                    )
-                    viewModel.clearMessages()
-                }
-            }
-        }
-    }
 
-    // Hiển thị thông báo thành công từ CartViewModel
-    LaunchedEffect(Unit) {
-        viewModel.successMessage.collectLatest { success ->
-            if (success != null) {
-                Log.d("ProductDetailScreen", "Cart success message: $success")
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar(
-                        message = success,
-                        actionLabel = null,
-                        withDismissAction = false,
-                        duration = SnackbarDuration.Short
-                    )
-                    viewModel.clearMessages()
-                }
-            }
-        }
-    }
 
-    // Fetch data when productId changes
     LaunchedEffect(productId) {
         productDetailViewModel.fetchProduct(productId)
         productDetailViewModel.fetchReviews(productId)
@@ -159,7 +127,8 @@ fun ProductDetailScreen(
                     }
                 }
             )
-        }) { paddingValues ->
+        }
+    ) { paddingValues ->
         when {
             productState.value == null && errorMessage.value == null -> {
                 Box(
@@ -205,7 +174,8 @@ fun ProductDetailScreen(
                             .background(Color(0xFFE0E0E0))
                     ) {
                         AsyncImage(
-                            model = product.anh_sp,
+                            model = product.anh_sp.takeIf { it.isNotEmpty() }
+                                ?: R.drawable.placeholder_image,
                             contentDescription = product.ten_sp,
                             modifier = Modifier.fillMaxSize(),
                             error = painterResource(R.drawable.placeholder_image)
@@ -316,10 +286,12 @@ fun ProductDetailScreen(
                                 Text("Thêm vào giỏ")
                             }
                         }
-
                         Button(
                             onClick = {
-                                navController.navigate("checkout/${product.id_sanpham}")
+                                // Chỉ điều hướng đến CheckoutScreen, không tạo đơn hàng
+                                val productJson = product.toJson()
+                                val encodedProduct = URLEncoder.encode(productJson, StandardCharsets.UTF_8.toString())
+                                navController.navigate("checkout?product=$encodedProduct&quantity=1")
                             },
                             modifier = Modifier
                                 .weight(1f)
@@ -358,32 +330,24 @@ fun ProductDetailScreen(
                         reviews = reviewsState.value,
                         users = usersState.value
                     )
-
-                    // Display error/success message from CartViewModel if any
-                    cartErrorMessage.value?.let { error ->
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Lỗi: $error",
-                            color = Color.Red,
-                            fontSize = 14.sp,
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                    }
-                    cartSuccessMessage.value?.let { success ->
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(
-                            text = "Thành công: $success",
-                            color = Color.Green,
-                            fontSize = 14.sp,
-                            modifier = Modifier.fillMaxWidth(),
-                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                        )
-                    }
                 }
             }
         }
     }
+}
+
+fun Product.toJson(): String {
+    return """{
+        "id_sanpham": "${id_sanpham}",
+        "ten_sp": "${ten_sp}",
+        "gia_sp": ${gia_sp},
+        "giam_gia": ${giam_gia},
+        "anh_sp": "${anh_sp}",
+        "mo_ta": "${mo_ta.replace("\"", "\\\"")}",
+        "soluong": ${soluong},
+        "so_luong_ban": ${so_luong_ban},
+        "danh_gia": ${danh_gia}
+    }""".trimIndent()
 }
 
 @Composable
@@ -590,7 +554,3 @@ fun formatTimestamp(timestamp: Timestamp?): String {
     }
 }
 
-//fun Int.formatWithComma(): String {
-//    val formatter = DecimalFormat("#,###")
-//    return formatter.format(this)
-//}

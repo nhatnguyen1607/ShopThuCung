@@ -13,7 +13,7 @@ import kotlinx.coroutines.tasks.await
 
 class RegisterViewModel(
     private val firestore: FirebaseFirestore,
-    private val activity: Activity
+//    private val activity: Activity
 ) : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
 
