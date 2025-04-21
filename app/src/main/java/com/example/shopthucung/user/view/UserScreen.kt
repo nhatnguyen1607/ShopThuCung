@@ -1,8 +1,12 @@
 package com.example.shopthucung.user.view
 
 import android.R.id.message
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -17,10 +21,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import com.example.shopthucung.model.Order
+import com.example.shopthucung.model.Product
 import com.example.shopthucung.model.User
 import com.example.shopthucung.user.viewmodel.UserViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.navigation.compose.rememberNavController
+import com.google.firebase.Timestamp
+import com.google.gson.Gson
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,17 +41,17 @@ fun UserScreen(navController: NavController, uid: String) {
     val user by viewModel.user.collectAsState()
     val message by viewModel.message.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val orders by viewModel.orders.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
-    val tabs = listOf("Thông tin cá nhân", "Cài đặt tài khoản")
+    val tabs = listOf("Thông tin cá nhân", "Đơn hàng của tôi", "Cài đặt tài khoản")
 
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Làm mới dữ liệu mỗi khi UserScreen được hiển thị
     LaunchedEffect(Unit) {
         viewModel.refreshUser()
+        viewModel.refreshOrders()
     }
 
-    // Chuyển hướng về màn hình đăng nhập nếu không tìm thấy dữ liệu
     LaunchedEffect(message) {
         message?.let {
             snackbarHostState.showSnackbar(it)
@@ -112,7 +123,9 @@ fun UserScreen(navController: NavController, uid: String) {
                                     text = title,
                                     fontSize = 16.sp,
                                     fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (selectedTab == index) Color(0xFFA5D6A7) else Color(0xFF757575)
+                                    color = if (selectedTab == index) Color(0xFFA5D6A7) else Color(
+                                        0xFF757575
+                                    )
                                 )
                             }
                         )
@@ -121,7 +134,13 @@ fun UserScreen(navController: NavController, uid: String) {
 
                 when (selectedTab) {
                     0 -> PersonalInfoTab(user = user)
-                    1 -> AccountSettingsTab(
+                    1 -> MyOrdersTab(
+                        orders = orders,
+                        navController = navController,
+                        viewModel = viewModel
+                    )
+
+                    2 -> AccountSettingsTab(
                         user = user,
                         onUpdateUser = { updatedUser: User ->
                             viewModel.updateUser(updatedUser)
@@ -144,6 +163,307 @@ fun UserScreen(navController: NavController, uid: String) {
                             }
                         }
                     )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MyOrdersTab(orders: List<Order>, navController: NavController, viewModel: UserViewModel) {
+    val displayStatuses =
+        listOf("Tất cả", "Đang xử lí", "Đã xác nhận", "Đang giao hàng", "Giao thành công", "Đã hủy")
+    val statusMapping = mapOf(
+        "Đang xử lí" to listOf("Đang xử lí"),
+        "Đã xác nhận" to listOf("Đã xác nhận"),
+        "Đang giao hàng" to listOf("Đang giao hàng"),
+        "Giao thành công" to listOf("Giao thành công"),
+        "Đã hủy" to listOf("Đã hủy")
+    )
+    var selectedStatus by remember { mutableStateOf("Tất cả") }
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp)
+        ) {
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded }
+            ) {
+                OutlinedTextField(
+                    value = selectedStatus,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Trạng thái đơn hàng") },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                    },
+                    modifier = Modifier
+                        .menuAnchor()
+                        .fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFA5D6A7),
+                        unfocusedBorderColor = Color(0xFFE0E0E0)
+                    )
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    displayStatuses.forEach { status ->
+                        DropdownMenuItem(
+                            text = { Text(status) },
+                            onClick = {
+                                selectedStatus = status
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
+
+        val filteredOrders = if (selectedStatus == "Tất cả") {
+            orders
+        } else {
+            val mappedStatuses = statusMapping[selectedStatus] ?: emptyList()
+            orders.filter { order -> mappedStatuses.contains(order.status) }
+        }
+
+        if (filteredOrders.isEmpty()) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Không có đơn hàng nào trong trạng thái này",
+                    fontSize = 16.sp,
+                    color = Color(0xFF757575)
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(filteredOrders) { order ->
+                    OrderItem(
+                        order = order,
+                        onClick = {
+                            val orderJson = Gson().toJson(order)
+                            navController.navigate("order_detail/$orderJson")
+                        },
+                        onReceivedClick = {
+                            viewModel.updateOrderStatus(order.orderId, "Giao thành công")
+                            viewModel.updateOrderStatus(order.orderId, "Đã hủy")
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun OrderItem(order: Order, onClick: () -> Unit, onReceivedClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .wrapContentHeight()
+            .clickable { onClick() },
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp)
+                ) {
+                    Text(
+                        text = "Sản phẩm: ${order.product?.ten_sp ?: "Không có thông tin"}",
+                        fontSize = 14.sp,
+                        color = Color(0xFF757575)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Số lượng: ${order.quantity}",
+                        fontSize = 14.sp,
+                        color = Color(0xFF757575)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Tổng tiền: ${order.totalPrice} VNĐ",
+                        fontSize = 14.sp,
+                        color = Color(0xFF757575)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Trạng thái:",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFF424242)
+                        )
+                        when (order.status) {
+                            "Đang xử lí", "Đã xác nhận" -> {
+                                Text(
+                                    text = order.status,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFFFFFFFF),
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .background(
+                                            color = Color(0xFF2196F3),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                )
+                            }
+
+                            "Đang giao hàng", "Giao thành công" -> {
+                                Text(
+                                    text = order.status,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFFFFFFFF),
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .background(
+                                            color = Color(0xFFA5D6A7),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                )
+                            }
+
+                            "Đã hủy" -> {
+                                Text(
+                                    text = order.status,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFFFFFFFF),
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .background(
+                                            color = Color(0xFFEE0000),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                )
+                            }
+
+                            else -> {
+                                Text(
+                                    text = order.status,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF757575),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+                    }
+                }
+
+                AsyncImage(
+                    model = order.product?.anh_sp ?: "",
+                    contentDescription = "Ảnh sản phẩm",
+                    modifier = Modifier
+                        .size(80.dp)
+                        .background(Color.Gray, RoundedCornerShape(8.dp)),
+                    alignment = Alignment.Center
+                )
+            }
+
+            if (order.status == "Đang giao hàng") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = onReceivedClick,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFA5D6A7),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .height(36.dp)
+                    ) {
+                        Text(
+                            text = "Đã nhận hàng",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            } else if (order.status == "Đang xử lí" || order.status == "Đã xác nhận") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = onReceivedClick,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFEE0000),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .height(36.dp)
+                    ) {
+                        Text(
+                            text = "Hủy đơn hàng",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            } else if (order.status == "Giao thành công") {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    Button(
+                        onClick = onReceivedClick,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFFF9900),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .height(36.dp)
+                    ) {
+                        Text(
+                            text = "Đánh giá",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }

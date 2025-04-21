@@ -75,4 +75,11 @@ dependencies {
     implementation("com.sun.mail:android-activation:1.6.7")
     implementation("com.google.gms:google-services:4.3.15")
     implementation ("androidx.compose.material3:material3:1.3.0")
+    implementation ("io.github.g0dkar:qrcode-kotlin:3.0.0")
+    implementation ("io.ktor:ktor-client-core:2.3.12")
+    implementation ("io.ktor:ktor-client-okhttp:2.3.12")
+    implementation ("io.ktor:ktor-client-content-negotiation:2.3.12")
+    implementation ("io.ktor:ktor-serialization-kotlinx-json:2.3.12")
+    implementation ("com.google.zxing:core:3.5.3")
+    implementation ("com.google.code.gson:gson:2.10.1")
 }

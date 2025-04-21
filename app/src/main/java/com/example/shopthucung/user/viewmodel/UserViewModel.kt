@@ -2,12 +2,14 @@ package com.example.shopthucung.user.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.shopthucung.model.Order
 import com.example.shopthucung.model.User
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 class UserViewModel(private val db: FirebaseFirestore, private val uid: String) : ViewModel() {
 
@@ -20,10 +22,15 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading
 
+    // Thêm StateFlow để lưu trữ danh sách đơn hàng
+    private val _orders = MutableStateFlow<List<Order>>(emptyList())
+    val orders: StateFlow<List<Order>> = _orders
+
     private val auth = FirebaseAuth.getInstance()
 
     init {
         fetchUser()
+        fetchOrders()
     }
 
     fun fetchUser() {
@@ -34,7 +41,6 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
                 .addOnSuccessListener { document ->
                     if (document.exists()) {
                         val userData = document.toObject(User::class.java)
-                        // Lấy email từ FirebaseAuth thay vì từ document
                         val email = auth.currentUser?.email ?: ""
                         _user.value = userData?.copy(email = email)
                         println("UserViewModel: User data fetched successfully: ${_user.value}")
@@ -53,8 +59,35 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
         }
     }
 
+    // Hàm lấy danh sách đơn hàng từ Firestore
+    fun fetchOrders() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            db.collection("orders")
+                .whereEqualTo("userId", uid)
+                .get()
+                .addOnSuccessListener { documents ->
+                    val orderList = documents.mapNotNull { doc ->
+                        doc.toObject(Order::class.java).copy(orderId = doc.id)
+                    }
+                    _orders.value = orderList
+                    _isLoading.value = false
+                    println("UserViewModel: Orders fetched successfully: $orderList")
+                }
+                .addOnFailureListener { exception ->
+                    _message.value = "Lỗi khi lấy đơn hàng: ${exception.message}"
+                    _isLoading.value = false
+                    println("UserViewModel: Failed to fetch orders: ${exception.message}")
+                }
+        }
+    }
+
     fun refreshUser() {
         fetchUser()
+    }
+
+    fun refreshOrders() {
+        fetchOrders()
     }
 
     fun updateUser(updatedUser: User) {
@@ -88,10 +121,8 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
                 return@launch
             }
 
-            // Cập nhật mật khẩu trong Firebase Authentication
             currentUser.updatePassword(newPassword)
                 .addOnSuccessListener {
-                    // Sau khi cập nhật thành công trong Auth, cập nhật tiếp trong Firestore
                     val updatedUser = userData.copy(matKhau = newPassword)
                     db.collection("user").document(uid).set(updatedUser)
                         .addOnSuccessListener {
@@ -107,7 +138,6 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
                 }
         }
     }
-
 
     fun deleteAccount(password: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
@@ -145,7 +175,23 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
             }
         }
     }
-
+    fun updateOrderStatus(orderId: String, newStatus: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                db.collection("orders")
+                    .document(orderId)
+                    .update("status", newStatus)
+                    .await()
+                _message.value = "Cập nhật trạng thái đơn hàng thành công"
+                refreshOrders()
+            } catch (e: Exception) {
+                _message.value = "Lỗi khi cập nhật trạng thái đơn hàng: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
     fun clearMessage() {
         _message.value = null
     }

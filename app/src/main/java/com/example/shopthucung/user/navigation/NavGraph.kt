@@ -32,6 +32,7 @@ import org.json.JSONObject
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import com.example.shopthucung.model.CartItem
+import com.example.shopthucung.user.view.OrderDetailScreen
 import org.json.JSONArray
 
 
@@ -88,78 +89,95 @@ fun NavGraph(navController: NavHostController) {
         }
 
 
-                composable(
-                    route = "checkout?product={product}&quantity={quantity}&cartItems={cartItems}",
-                    arguments = listOf(
-                        navArgument("product") { type = NavType.StringType; defaultValue = "" },
-                        navArgument("quantity") { type = NavType.IntType; defaultValue = 1 },
-                        navArgument("cartItems") { type = NavType.StringType; defaultValue = "" }
+        composable(
+            route = "checkout?product={product}&quantity={quantity}&cartItems={cartItems}",
+            arguments = listOf(
+                navArgument("product") { type = NavType.StringType; defaultValue = "" },
+                navArgument("quantity") { type = NavType.IntType; defaultValue = 1 },
+                navArgument("cartItems") { type = NavType.StringType; defaultValue = "" }
+            )
+        ) { backStackEntry ->
+            val productJson = backStackEntry.arguments?.getString("product") ?: ""
+            val quantity = backStackEntry.arguments?.getInt("quantity") ?: 1
+            val cartItemsJson = backStackEntry.arguments?.getString("cartItems") ?: ""
+
+            val product = try {
+                if (productJson.isNotEmpty()) {
+                    val jsonObject = JSONObject(
+                        URLDecoder.decode(
+                            productJson,
+                            StandardCharsets.UTF_8.toString()
+                        )
                     )
-                ) { backStackEntry ->
-                    val productJson = backStackEntry.arguments?.getString("product") ?: ""
-                    val quantity = backStackEntry.arguments?.getInt("quantity") ?: 1
-                    val cartItemsJson = backStackEntry.arguments?.getString("cartItems") ?: ""
-
-                    val product = try {
-                        if (productJson.isNotEmpty()) {
-                            val jsonObject = JSONObject(URLDecoder.decode(productJson, StandardCharsets.UTF_8.toString()))
-                            Product(
-                                id_sanpham = jsonObject.getInt("id_sanpham"),
-                                ten_sp = jsonObject.getString("ten_sp"),
-                                gia_sp = jsonObject.getLong("gia_sp"),
-                                giam_gia = jsonObject.getInt("giam_gia"),
-                                anh_sp = jsonObject.getString("anh_sp"),
-                                mo_ta = jsonObject.getString("mo_ta"),
-                                soluong = jsonObject.getInt("soluong"),
-                                so_luong_ban = jsonObject.getInt("so_luong_ban"),
-                                danh_gia = jsonObject.getDouble("danh_gia").toFloat()
-                            )
-                        } else {
-                            null
-                        }
-                    } catch (e: Exception) {
-                        Log.e("CheckoutScreen", "Lỗi giải mã product: ${e.message}")
-                        null
-                    }
-
-                    val cartItems = try {
-                        if (cartItemsJson.isNotEmpty()) {
-                            val jsonArray = JSONArray(URLDecoder.decode(cartItemsJson, StandardCharsets.UTF_8.toString()))
-                            (0 until jsonArray.length()).map { index ->
-                                val jsonObject = jsonArray.getJSONObject(index)
-                                val productJson = jsonObject.getJSONObject("product")
-                                CartItem(
-                                    product = Product(
-                                        id_sanpham = productJson.getInt("id_sanpham"),
-                                        ten_sp = productJson.getString("ten_sp"),
-                                        gia_sp = productJson.getLong("gia_sp"),
-                                        giam_gia = productJson.getInt("giam_gia"),
-                                        anh_sp = productJson.getString("anh_sp"),
-                                        mo_ta = productJson.getString("mo_ta"),
-                                        soluong = productJson.getInt("soluong"),
-                                        so_luong_ban = productJson.getInt("so_luong_ban"),
-                                        danh_gia = productJson.getDouble("danh_gia").toFloat()
-                                    ),
-                                    quantity = jsonObject.getInt("quantity"),
-                                    cartIndex = jsonObject.getInt("cartIndex")
-                                )
-                            }
-                        } else {
-                            null
-                        }
-                    } catch (e: Exception) {
-                        Log.e("CheckoutScreen", "Lỗi giải mã cartItems: ${e.message}")
-                        null
-                    }
-
-                    CheckoutScreen(
-                        navController = navController,
-                        orderViewModel = orderViewModel,
-                        cartViewModel = cartViewModel,
-                        product = product,
-                        quantity = quantity,
-                        cartItems = cartItems
+                    Product(
+                        id_sanpham = jsonObject.getInt("id_sanpham"),
+                        ten_sp = jsonObject.getString("ten_sp"),
+                        gia_sp = jsonObject.getLong("gia_sp"),
+                        giam_gia = jsonObject.getInt("giam_gia"),
+                        anh_sp = jsonObject.getString("anh_sp"),
+                        mo_ta = jsonObject.getString("mo_ta"),
+                        soluong = jsonObject.getInt("soluong"),
+                        so_luong_ban = jsonObject.getInt("so_luong_ban"),
+                        danh_gia = jsonObject.getDouble("danh_gia").toFloat()
                     )
+                } else {
+                    null
                 }
+            } catch (e: Exception) {
+                Log.e("CheckoutScreen", "Lỗi giải mã product: ${e.message}")
+                null
+            }
+
+            val cartItems = try {
+                if (cartItemsJson.isNotEmpty()) {
+                    val jsonArray = JSONArray(
+                        URLDecoder.decode(
+                            cartItemsJson,
+                            StandardCharsets.UTF_8.toString()
+                        )
+                    )
+                    (0 until jsonArray.length()).map { index ->
+                        val jsonObject = jsonArray.getJSONObject(index)
+                        val productJson = jsonObject.getJSONObject("product")
+                        CartItem(
+                            product = Product(
+                                id_sanpham = productJson.getInt("id_sanpham"),
+                                ten_sp = productJson.getString("ten_sp"),
+                                gia_sp = productJson.getLong("gia_sp"),
+                                giam_gia = productJson.getInt("giam_gia"),
+                                anh_sp = productJson.getString("anh_sp"),
+                                mo_ta = productJson.getString("mo_ta"),
+                                soluong = productJson.getInt("soluong"),
+                                so_luong_ban = productJson.getInt("so_luong_ban"),
+                                danh_gia = productJson.getDouble("danh_gia").toFloat()
+                            ),
+                            quantity = jsonObject.getInt("quantity"),
+                            cartIndex = jsonObject.getInt("cartIndex")
+                        )
+                    }
+                } else {
+                    null
+                }
+            } catch (e: Exception) {
+                Log.e("CheckoutScreen", "Lỗi giải mã cartItems: ${e.message}")
+                null
+            }
+
+            CheckoutScreen(
+                navController = navController,
+                orderViewModel = orderViewModel,
+                cartViewModel = cartViewModel,
+                product = product,
+                quantity = quantity,
+                cartItems = cartItems
+            )
+        }
+        composable(
+            route = "order_detail/{orderJson}",
+            arguments = listOf(navArgument("orderJson") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val orderJson = backStackEntry.arguments?.getString("orderJson") ?: ""
+            OrderDetailScreen(navController = navController, orderJson = orderJson)
+        }
     }
 }
