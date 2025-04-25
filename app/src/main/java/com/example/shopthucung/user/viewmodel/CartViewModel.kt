@@ -1,4 +1,3 @@
-
 package com.example.shopthucung.user.viewmodel
 
 import android.util.Log
@@ -37,30 +36,33 @@ class CartViewModel : ViewModel() {
             try {
                 val userId = auth.currentUser?.uid
                 if (userId == null) {
-                    Log.d("CartViewModel", "Người dùng chưa đăng nhập")
+                    Log.w("CartViewModel", "Người dùng chưa đăng nhập!")
                     _errorMessage.value = "Người dùng chưa đăng nhập!"
                     return@launch
                 }
-                Log.d("CartViewModel", "User ID: $userId")
 
-                // Kiểm tra xem sản phẩm đã có trong giỏ hàng chưa
-                Log.d("CartViewModel", "Kiểm tra sản phẩm trong giỏ hàng với productId: ${product.id_sanpham}")
                 val existingItem = db.collection("cart")
                     .whereEqualTo("userId", userId)
                     .whereEqualTo("productId", product.id_sanpham)
                     .get()
                     .await()
-                Log.d("CartViewModel", "Kết quả kiểm tra: ${existingItem.documents.size} mục")
 
                 if (!existingItem.isEmpty) {
                     // Nếu sản phẩm đã tồn tại, tăng quantity
                     val doc = existingItem.documents[0]
                     val currentQuantity = doc.getLong("quantity")?.toInt() ?: 1
-                    Log.d("CartViewModel", "Sản phẩm đã tồn tại, quantity hiện tại: $currentQuantity")
                     doc.reference.update("quantity", currentQuantity + 1).await()
-                    Log.d("CartViewModel", "Đã cập nhật quantity thành: ${currentQuantity + 1}")
                     _successMessage.value = "Đã tăng số lượng sản phẩm trong giỏ hàng!"
-                    fetchCartItems()
+                    Log.d("CartViewModel", "Đã cập nhật số lượng: ${_successMessage.value}")
+                    // Cập nhật cục bộ
+                    _cartItemsState.value = _cartItemsState.value.map {
+                        if (it.productId == product.id_sanpham) {
+                            it.copy(quantity = currentQuantity + 1)
+                        } else {
+                            it
+                        }
+                    }
+                    fetchCartItems() // Đồng bộ lại từ Firestore
                 } else {
                     // Nếu sản phẩm chưa tồn tại, thêm mới
                     Log.d("CartViewModel", "Thêm sản phẩm mới vào giỏ hàng")
@@ -96,7 +98,16 @@ class CartViewModel : ViewModel() {
                         .await()
                     Log.d("CartViewModel", "Đã thêm sản phẩm vào giỏ hàng với ID: $newDocId")
                     _successMessage.value = "Thêm vào giỏ hàng thành công!"
-                    fetchCartItems()
+                    Log.d("CartViewModel", "Đã thêm vào giỏ hàng: ${_successMessage.value}")
+                    // Cập nhật cục bộ
+                    _cartItemsState.value = _cartItemsState.value + CartItem(
+                        userId = userId,
+                        productId = product.id_sanpham,
+                        quantity = 1,
+                        product = product,
+                        cartIndex = newIndex
+                    )
+                    fetchCartItems() // Đồng bộ lại từ Firestore
                 }
             } catch (e: Exception) {
                 Log.e("CartViewModel", "Lỗi trong addToCart: ${e.message}", e)
@@ -106,11 +117,12 @@ class CartViewModel : ViewModel() {
     }
 
     fun fetchCartItems() {
+        Log.d("CartViewModel", "Bắt đầu fetchCartItems")
         viewModelScope.launch {
             try {
                 val userId = auth.currentUser?.uid
                 if (userId == null) {
-                    Log.d("CartViewModel", "Người dùng chưa đăng nhập trong fetchCartItems")
+                    Log.w("CartViewModel", "Người dùng chưa đăng nhập trong fetchCartItems")
                     _errorMessage.value = "Người dùng chưa đăng nhập!"
                     return@launch
                 }
@@ -121,7 +133,9 @@ class CartViewModel : ViewModel() {
                     .await()
 
                 val cartItems = result.documents.mapNotNull { doc ->
-                    doc.toObject(CartItem::class.java)
+                    doc.toObject(CartItem::class.java)?.apply {
+                        Log.d("CartViewModel", "Lấy được mục giỏ hàng: ${this.product?.ten_sp}, quantity: ${this.quantity}")
+                    }
                 }
                 _cartItemsState.value = cartItems
                 Log.d("CartViewModel", "Đã tải ${cartItems.size} mục trong giỏ hàng")
@@ -133,11 +147,12 @@ class CartViewModel : ViewModel() {
     }
 
     fun updateQuantity(cartItem: CartItem, newQuantity: Int) {
+        Log.d("CartViewModel", "Bắt đầu updateQuantity cho sản phẩm: ${cartItem.product?.ten_sp}, số lượng mới: $newQuantity")
         viewModelScope.launch {
             try {
                 val userId = auth.currentUser?.uid
                 if (userId == null) {
-                    Log.d("CartViewModel", "Người dùng chưa đăng nhập trong updateQuantity")
+                    Log.w("CartViewModel", "Người dùng chưa đăng nhập trong updateQuantity")
                     _errorMessage.value = "Người dùng chưa đăng nhập!"
                     return@launch
                 }
@@ -163,9 +178,18 @@ class CartViewModel : ViewModel() {
                     } else {
                         "Đã giảm số lượng sản phẩm!"
                     }
-                    fetchCartItems()
+                    Log.d("CartViewModel", "Đã cập nhật số lượng: ${_successMessage.value}")
+                    // Cập nhật cục bộ
+                    _cartItemsState.value = _cartItemsState.value.map {
+                        if (it.cartIndex == cartItem.cartIndex && it.userId == userId) {
+                            it.copy(quantity = newQuantity)
+                        } else {
+                            it
+                        }
+                    }
+                    fetchCartItems() // Đồng bộ lại từ Firestore
                 } else {
-                    Log.d("CartViewModel", "Không tìm thấy sản phẩm để cập nhật: $docId")
+                    Log.w("CartViewModel", "Không tìm thấy sản phẩm để cập nhật: $docId")
                     _errorMessage.value = "Không tìm thấy sản phẩm trong giỏ hàng để cập nhật!"
                 }
             } catch (e: Exception) {
@@ -176,11 +200,12 @@ class CartViewModel : ViewModel() {
     }
 
     fun removeCartItem(cartItem: CartItem) {
+        Log.d("CartViewModel", "Bắt đầu removeCartItem cho sản phẩm: ${cartItem.product?.ten_sp}")
         viewModelScope.launch {
             try {
                 val userId = auth.currentUser?.uid
                 if (userId == null) {
-                    Log.d("CartViewModel", "Người dùng chưa đăng nhập trong removeCartItem")
+                    Log.w("CartViewModel", "Người dùng chưa đăng nhập trong removeCartItem")
                     _errorMessage.value = "Người dùng chưa đăng nhập!"
                     return@launch
                 }
@@ -198,9 +223,14 @@ class CartViewModel : ViewModel() {
                         .await()
                     Log.d("CartViewModel", "Đã xóa sản phẩm: $docId")
                     _successMessage.value = "Đã xóa sản phẩm khỏi giỏ hàng!"
-                    fetchCartItems()
+                    Log.d("CartViewModel", "Đã xóa sản phẩm: ${_successMessage.value}")
+                    // Cập nhật cục bộ
+                    _cartItemsState.value = _cartItemsState.value.filterNot {
+                        it.cartIndex == cartItem.cartIndex && it.userId == userId
+                    }
+                    fetchCartItems() // Đồng bộ lại từ Firestore
                 } else {
-                    Log.d("CartViewModel", "Không tìm thấy sản phẩm để xóa: $docId")
+                    Log.w("CartViewModel", "Không tìm thấy sản phẩm để xóa: $docId")
                     _errorMessage.value = "Không tìm thấy sản phẩm trong giỏ hàng để xóa!"
                 }
             } catch (e: Exception) {
@@ -212,7 +242,7 @@ class CartViewModel : ViewModel() {
 
     // Hàm để reset thông báo sau khi hiển thị
     fun clearMessages() {
-        Log.d("CartViewModel", "Clear messages")
+        Log.d("CartViewModel", "Clear messages: successMessage=${_successMessage.value}, errorMessage=${_errorMessage.value}")
         _successMessage.value = null
         _errorMessage.value = null
     }

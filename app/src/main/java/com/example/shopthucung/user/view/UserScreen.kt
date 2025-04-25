@@ -123,9 +123,7 @@ fun UserScreen(navController: NavController, uid: String) {
                                     text = title,
                                     fontSize = 16.sp,
                                     fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (selectedTab == index) Color(0xFFA5D6A7) else Color(
-                                        0xFF757575
-                                    )
+                                    color = if (selectedTab == index) Color(0xFFA5D6A7) else Color(0xFF757575)
                                 )
                             }
                         )
@@ -137,9 +135,9 @@ fun UserScreen(navController: NavController, uid: String) {
                     1 -> MyOrdersTab(
                         orders = orders,
                         navController = navController,
-                        viewModel = viewModel
+                        viewModel = viewModel,
+                        uid = uid
                     )
-
                     2 -> AccountSettingsTab(
                         user = user,
                         onUpdateUser = { updatedUser: User ->
@@ -171,7 +169,12 @@ fun UserScreen(navController: NavController, uid: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MyOrdersTab(orders: List<Order>, navController: NavController, viewModel: UserViewModel) {
+fun MyOrdersTab(
+    orders: List<Order>,
+    navController: NavController,
+    viewModel: UserViewModel,
+    uid: String
+) {
     val displayStatuses =
         listOf("Tất cả", "Đang xử lí", "Đã xác nhận", "Đang giao hàng", "Giao thành công", "Đã hủy")
     val statusMapping = mapOf(
@@ -262,9 +265,14 @@ fun MyOrdersTab(orders: List<Order>, navController: NavController, viewModel: Us
                             navController.navigate("order_detail/$orderJson")
                         },
                         onReceivedClick = {
-                            viewModel.updateOrderStatus(order.orderId, "Giao thành công")
-                            viewModel.updateOrderStatus(order.orderId, "Đã hủy")
-                        }
+                            if (order.status == "Đang giao hàng") {
+                                viewModel.updateOrderStatus(order.orderId, "Giao thành công")
+                            } else if (order.status == "Đang xử lí" || order.status == "Đã xác nhận") {
+                                viewModel.updateOrderStatus(order.orderId, "Đã hủy")
+                            }
+                        },
+                        navController = navController, // Truyền navController
+                        uid = uid // Truyền uid
                     )
                 }
             }
@@ -273,7 +281,16 @@ fun MyOrdersTab(orders: List<Order>, navController: NavController, viewModel: Us
 }
 
 @Composable
-fun OrderItem(order: Order, onClick: () -> Unit, onReceivedClick: () -> Unit) {
+fun OrderItem(
+    order: Order,
+    onClick: () -> Unit,
+    onReceivedClick: () -> Unit,
+    navController: NavController,
+    uid: String
+) {
+    // Thêm trạng thái để kiểm soát việc hủy đơn
+    var isCancelling by remember { mutableStateOf(false) }
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -343,7 +360,7 @@ fun OrderItem(order: Order, onClick: () -> Unit, onReceivedClick: () -> Unit) {
                                 )
                             }
 
-                            "Đang giao hàng", "Giao thành công" -> {
+                            "Đang giao hàng" -> {
                                 Text(
                                     text = order.status,
                                     fontSize = 14.sp,
@@ -351,7 +368,21 @@ fun OrderItem(order: Order, onClick: () -> Unit, onReceivedClick: () -> Unit) {
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier
                                         .background(
-                                            color = Color(0xFFA5D6A7),
+                                            color = Color(0xFF00FFCC),
+                                            shape = RoundedCornerShape(8.dp)
+                                        )
+                                )
+                            }
+
+                            "Giao thành công" -> {
+                                Text(
+                                    text = order.status,
+                                    fontSize = 14.sp,
+                                    color = Color(0xFFFFFFFF),
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier
+                                        .background(
+                                            color = Color(0xFF00FF00),
                                             shape = RoundedCornerShape(8.dp)
                                         )
                                 )
@@ -401,14 +432,20 @@ fun OrderItem(order: Order, onClick: () -> Unit, onReceivedClick: () -> Unit) {
                     horizontalArrangement = Arrangement.End
                 ) {
                     Button(
-                        onClick = onReceivedClick,
+                        onClick = {
+                            if (!isCancelling) {
+                                isCancelling = true
+                                onReceivedClick()
+                            }
+                        },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFA5D6A7),
+                            containerColor = Color(0xFF00FFCC),
                             contentColor = Color.White
                         ),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier
-                            .height(36.dp)
+                            .height(36.dp),
+                        enabled = !isCancelling
                     ) {
                         Text(
                             text = "Đã nhận hàng",
@@ -425,14 +462,20 @@ fun OrderItem(order: Order, onClick: () -> Unit, onReceivedClick: () -> Unit) {
                     horizontalArrangement = Arrangement.End
                 ) {
                     Button(
-                        onClick = onReceivedClick,
+                        onClick = {
+                            if (!isCancelling) {
+                                isCancelling = true
+                                onReceivedClick()
+                            }
+                        },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFFEE0000),
                             contentColor = Color.White
                         ),
                         shape = RoundedCornerShape(8.dp),
                         modifier = Modifier
-                            .height(36.dp)
+                            .height(36.dp),
+                        enabled = !isCancelling
                     ) {
                         Text(
                             text = "Hủy đơn hàng",
@@ -449,7 +492,10 @@ fun OrderItem(order: Order, onClick: () -> Unit, onReceivedClick: () -> Unit) {
                     horizontalArrangement = Arrangement.End
                 ) {
                     Button(
-                        onClick = onReceivedClick,
+                        onClick = {
+                            val orderJson = Gson().toJson(order)
+                            navController.navigate("rating/$orderJson/$uid")
+                        },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFFFF9900),
                             contentColor = Color.White
@@ -468,7 +514,15 @@ fun OrderItem(order: Order, onClick: () -> Unit, onReceivedClick: () -> Unit) {
             }
         }
     }
+
+    // Reset isCancelling khi trạng thái đơn hàng thay đổi
+    LaunchedEffect(order.status) {
+        if (order.status != "Đang xử lí" && order.status != "Đã xác nhận") {
+            isCancelling = false
+        }
+    }
 }
+
 
 @Composable
 fun PersonalInfoTab(user: User?) {

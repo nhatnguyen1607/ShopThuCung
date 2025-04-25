@@ -13,7 +13,6 @@ import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -30,7 +29,8 @@ class OrderViewModel : ViewModel() {
     private val _pendingOrders = MutableStateFlow<List<Order>>(emptyList())
     val pendingOrders: StateFlow<List<Order>> = _pendingOrders.asStateFlow()
 
-    private val _vnpayUrls = MutableStateFlow<List<Pair<String, String>>>(emptyList()) // (orderId, url)
+    private val _vnpayUrls =
+        MutableStateFlow<List<Pair<String, String>>>(emptyList()) // (orderId, url)
     val vnpayUrls: StateFlow<List<Pair<String, String>>> = _vnpayUrls.asStateFlow()
 
     fun confirmDirectOrder(product: Product, quantity: Int, paymentMethod: String) {
@@ -44,6 +44,12 @@ class OrderViewModel : ViewModel() {
 
                 if (paymentMethod.isBlank()) {
                     _errorMessage.value = "Phương thức thanh toán không hợp lệ!"
+                    return@launch
+                }
+
+                // Kiểm tra số lượng tồn kho
+                if (product.soluong < quantity) {
+                    _errorMessage.value = "Số lượng sản phẩm ${product.ten_sp} không đủ! Chỉ còn ${product.soluong} sản phẩm."
                     return@launch
                 }
 
@@ -72,7 +78,6 @@ class OrderViewModel : ViewModel() {
 
                 val newIndex = maxIndex + 1
                 val orderId = "${userId}_${product.id_sanpham}_$newIndex"
-                Log.d("OrderViewModel", "Tạo đơn hàng với ID: $orderId")
 
                 val order = Order(
                     orderId = orderId,
@@ -82,7 +87,7 @@ class OrderViewModel : ViewModel() {
                     quantity = quantity,
                     totalPrice = totalPrice,
                     paymentMethod = paymentMethod,
-                    status = if (paymentMethod == "VNPay") "Đang xử lí" else "Đã xử lí"
+                    status = "Đang xử lí"
                 )
 
                 if (paymentMethod == "VNPay") {
@@ -94,7 +99,6 @@ class OrderViewModel : ViewModel() {
                         orderInfo = "Thanh toan don hang $orderId"
                     )
                     _vnpayUrls.value = listOf(orderId to vnpayUrl)
-                    Log.d("OrderViewModel", "Tạo URL VNPay: $vnpayUrl")
 
                     // Lưu đơn hàng tạm thời
                     db.collection("orders")
@@ -108,18 +112,28 @@ class OrderViewModel : ViewModel() {
                         .set(order)
                         .await()
 
+                    // Cập nhật số lượng và số lượng bán
+                    product.so_luong_ban += order.quantity
+                    db.collection("product")
+                        .document(product.ten_sp.toString())
+                        .set(product)
+                        .await()
+
                     _pendingOrders.value = emptyList()
                     _successMessage.value = "Thanh toán thành công với $paymentMethod!"
                 }
 
             } catch (e: Exception) {
-                Log.e("OrderViewModel", "Lỗi khi tạo đơn hàng: ${e.message}", e)
                 _errorMessage.value = "Lỗi khi tạo đơn hàng: ${e.message}"
             }
         }
     }
 
-    fun confirmCartOrders(cartItems: List<CartItem>, paymentMethod: String, onComplete: suspend () -> Unit) {
+    fun confirmCartOrders(
+        cartItems: List<CartItem>,
+        paymentMethod: String,
+        onComplete: suspend () -> Unit
+    ) {
         viewModelScope.launch {
             try {
                 val userId = auth.currentUser?.uid
@@ -136,6 +150,15 @@ class OrderViewModel : ViewModel() {
                 if (cartItems.isEmpty()) {
                     _errorMessage.value = "Giỏ hàng trống!"
                     return@launch
+                }
+
+                // Kiểm tra số lượng tồn kho cho tất cả sản phẩm trong giỏ hàng
+                for (cartItem in cartItems) {
+                    val product = cartItem.product ?: continue
+                    if (product.soluong < cartItem.quantity) {
+                        _errorMessage.value = "Số lượng sản phẩm ${product.ten_sp} không đủ! Chỉ còn ${product.soluong} sản phẩm."
+                        return@launch
+                    }
                 }
 
                 val orders = mutableListOf<Order>()
@@ -177,7 +200,7 @@ class OrderViewModel : ViewModel() {
                         quantity = cartItem.quantity,
                         totalPrice = totalPrice,
                         paymentMethod = paymentMethod,
-                        status = if (paymentMethod == "VNPay") "Pending" else "Confirmed"
+                        status = "Đang xử lí"
                     )
 
                     if (paymentMethod == "VNPay") {
@@ -203,6 +226,13 @@ class OrderViewModel : ViewModel() {
                             .set(order)
                             .await()
 
+                        // Cập nhật số lượng và số lượng bán
+                        product.so_luong_ban += order.quantity
+                        db.collection("product")
+                            .document(product.ten_sp.toString())
+                            .set(product)
+                            .await()
+
                         // Xóa mục trong giỏ hàng
                         val docId = "${userId}_${cartItem.cartIndex}"
                         db.collection("cart")
@@ -219,7 +249,8 @@ class OrderViewModel : ViewModel() {
                     _vnpayUrls.value = vnpayUrls
                 } else {
                     _pendingOrders.value = emptyList()
-                    _successMessage.value = "Đã tạo ${orders.size} đơn hàng thành công với $paymentMethod!"
+                    _successMessage.value =
+                        "Đã tạo ${orders.size} đơn hàng thành công với $paymentMethod!"
                     onComplete()
                 }
 
@@ -230,15 +261,35 @@ class OrderViewModel : ViewModel() {
         }
     }
 
-    // Giả lập xác nhận thanh toán VNPay (thay bằng callback thực tế)
     fun confirmVNPayPayment(orderId: String) {
         viewModelScope.launch {
             try {
+                // Lấy thông tin đơn hàng từ Firestore
+                val orderSnapshot = db.collection("orders")
+                    .document(orderId)
+                    .get()
+                    .await()
+
+                val order = orderSnapshot.toObject(Order::class.java)
+                    ?: throw Exception("Không tìm thấy đơn hàng với ID: $orderId")
+
+                // Cập nhật trạng thái đơn hàng
                 db.collection("orders")
                     .document(orderId)
-                    .update("status", "Confirmed")
+                    .update("status", "Đã xác nhận")
                     .await()
-                Log.d("OrderViewModel", "Đã xác nhận thanh toán VNPay cho đơn hàng: $orderId")
+
+                // Cập nhật số lượng và số lượng bán của sản phẩm
+                val product = order.product ?: throw Exception("Không tìm thấy sản phẩm trong đơn hàng")
+                if (product.soluong < order.quantity) {
+                    throw Exception("Số lượng sản phẩm ${product.ten_sp} không đủ để hoàn thành đơn hàng")
+                }
+                product.so_luong_ban += order.quantity
+
+                db.collection("product")
+                    .document(product.ten_sp.toString())
+                    .set(product)
+                    .await()
 
                 // Xóa mục giỏ hàng nếu có
                 val userId = auth.currentUser?.uid ?: return@launch
@@ -281,7 +332,6 @@ class OrderViewModel : ViewModel() {
             )
         }
         _pendingOrders.value = orders
-        Log.d("OrderViewModel", "Đã đặt ${orders.size} đơn hàng tạm thời")
     }
 
     fun setPendingOrder(product: Product, quantity: Int) {
@@ -303,13 +353,11 @@ class OrderViewModel : ViewModel() {
         )
 
         _pendingOrders.value = listOf(pendingOrder)
-        Log.d("OrderViewModel", "Đã đặt đơn hàng tạm thời: $pendingOrder")
     }
 
     fun clearPendingOrders() {
         _pendingOrders.value = emptyList()
         _vnpayUrls.value = emptyList()
-        Log.d("OrderViewModel", "Pending orders and VNPay URLs cleared")
     }
 
     fun clearMessages() {

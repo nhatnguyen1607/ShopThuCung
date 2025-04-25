@@ -33,6 +33,7 @@ import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import com.example.shopthucung.model.CartItem
 import com.example.shopthucung.user.view.OrderDetailScreen
+import com.example.shopthucung.user.view.RatingScreen
 import org.json.JSONArray
 
 
@@ -77,7 +78,6 @@ fun NavGraph(navController: NavHostController) {
                 navController = navController,
                 productId = productId,
                 viewModel = cartViewModel,
-                orderViewModel = orderViewModel,
                 productDetailViewModel = viewModel<ProductDetailViewModel>()
             )
         }
@@ -178,6 +178,11 @@ fun NavGraph(navController: NavHostController) {
         ) { backStackEntry ->
             val orderJson = backStackEntry.arguments?.getString("orderJson") ?: ""
             OrderDetailScreen(navController = navController, orderJson = orderJson)
+        }
+        composable("rating/{orderJson}/{uid}") { backStackEntry ->
+            val orderJson = backStackEntry.arguments?.getString("orderJson") ?: ""
+            val uid = backStackEntry.arguments?.getString("uid") ?: ""
+            RatingScreen(navController = navController, orderJson = orderJson, uid = uid)
         }
     }
 }

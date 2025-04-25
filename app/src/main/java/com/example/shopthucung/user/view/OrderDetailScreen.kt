@@ -24,10 +24,8 @@ import java.util.Locale
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderDetailScreen(navController: NavController, orderJson: String) {
-    // Chuyển đổi chuỗi JSON thành đối tượng Order
     val order = Gson().fromJson(orderJson, Order::class.java)
 
-    // Định dạng thời gian theo dd/MM/yyyy
     val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     val formattedDate = dateFormat.format(order.timestamp.toDate())
 
@@ -64,9 +62,8 @@ fun OrderDetailScreen(navController: NavController, orderJson: String) {
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Ảnh sản phẩm to ở trên
             AsyncImage(
                 model = order.product?.anh_sp ?: "",
                 contentDescription = "Ảnh sản phẩm",
@@ -111,7 +108,7 @@ fun OrderDetailScreen(navController: NavController, orderJson: String) {
                         )
                         Text(
                             text = order.orderId,
-                            fontSize = 14.sp,
+                            fontSize = 12.sp,
                             color = Color(0xFF757575)
                         )
                     }
@@ -219,13 +216,13 @@ fun OrderDetailScreen(navController: NavController, orderJson: String) {
             ) {
                 Text(
                     text = "Tổng tiền:",
-                    fontSize = 32.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color(0xFF424242)
                 )
                 Text(
                     text = "${order.totalPrice} VNĐ",
-                    fontSize = 32.sp,
+                    fontSize = 24.sp,
                     color = Color(0xFFF44336),
                     fontWeight = FontWeight.Bold
                 )

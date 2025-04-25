@@ -83,27 +83,26 @@ fun CheckoutScreen(
         Log.d("CheckoutScreen", "Orders: ${orders.value}, VNPay URLs: ${vnpayUrls.value}")
     }
 
-    // Xử lý lỗi
-    LaunchedEffect(Unit) {
-        orderViewModel.errorMessage.collectLatest { error ->
-            if (error != null) {
-                Log.d("CheckoutScreen", "Order error message: $error")
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar(
-                        message = error,
-                        duration = SnackbarDuration.Short
-                    )
-                    orderViewModel.clearMessages()
-                }
-            }
-        }
-    }
-
-    // Xử lý thành công
+//    // Xử lý lỗi
+//    LaunchedEffect(Unit) {
+//        orderViewModel.errorMessage.collectLatest { error ->
+//            if (error != null) {
+//                Log.d("CheckoutScreen", "Order error message: $error")
+//                coroutineScope.launch {
+//                    snackbarHostState.showSnackbar(
+//                        message = error,
+//                        duration = SnackbarDuration.Short
+//                    )
+//                    orderViewModel.clearMessages()
+//                }
+//            }
+//        }
+//    }
+//
+//    // Xử lý thành công
     LaunchedEffect(Unit) {
         orderViewModel.successMessage.collectLatest { success ->
             if (success != null) {
-                Log.d("CheckoutScreen", "Order success message: $success")
                 coroutineScope.launch {
                     snackbarHostState.showSnackbar(
                         message = success,
@@ -120,10 +119,11 @@ fun CheckoutScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Thanh toán") },
+                title = { Text("Đặt hàng") },
                 navigationIcon = {
                     IconButton(onClick = {
                         orderViewModel.clearPendingOrders()
+                        orderViewModel.clearMessages()
                         navController.popBackStack()
                     }) {
                         Icon(
@@ -277,7 +277,7 @@ fun CheckoutScreen(
                             if (selectedPaymentMethod.isEmpty()) {
                                 coroutineScope.launch {
                                     snackbarHostState.showSnackbar(
-                                        message = "Vui lòng chọn phương thức thanh toán",
+                                        message = "Vui lòng chọn phương thức đặt hàng",
                                         duration = SnackbarDuration.Short
                                     )
                                 }
@@ -301,7 +301,7 @@ fun CheckoutScreen(
                         shape = RoundedCornerShape(12.dp),
                         enabled = orders.value.isNotEmpty()
                     ) {
-                        Text("Thanh toán", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Text("Đặt hàng", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -315,16 +315,16 @@ fun CheckoutScreen(
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
-                successMessage.value?.let { success ->
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        text = "Thành công: $success",
-                        color = Color.Green,
-                        fontSize = 14.sp,
-                        modifier = Modifier.fillMaxWidth(),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
-                }
+//                successMessage.value?.let { success ->
+//                    Spacer(modifier = Modifier.height(16.dp))
+//                    Text(
+//                        text = "Thành công: $success",
+//                        color = Color.Green,
+//                        fontSize = 14.sp,
+//                        modifier = Modifier.fillMaxWidth(),
+//                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+//                    )
+//                }
             }
         }
     }

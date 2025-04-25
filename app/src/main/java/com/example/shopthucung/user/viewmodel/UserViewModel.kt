@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlin.math.max
 
 class UserViewModel(private val db: FirebaseFirestore, private val uid: String) : ViewModel() {
 
@@ -22,7 +23,6 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
     private val _isLoading = MutableStateFlow(true)
     val isLoading: StateFlow<Boolean> = _isLoading
 
-    // Thêm StateFlow để lưu trữ danh sách đơn hàng
     private val _orders = MutableStateFlow<List<Order>>(emptyList())
     val orders: StateFlow<List<Order>> = _orders
 
@@ -59,7 +59,6 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
         }
     }
 
-    // Hàm lấy danh sách đơn hàng từ Firestore
     fun fetchOrders() {
         viewModelScope.launch {
             _isLoading.value = true
@@ -175,14 +174,53 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
             }
         }
     }
+
     fun updateOrderStatus(orderId: String, newStatus: String) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
+                // Lấy thông tin đơn hàng từ Firestore
+                val orderSnapshot = db.collection("orders")
+                    .document(orderId)
+                    .get()
+                    .await()
+
+                val order = orderSnapshot.toObject(Order::class.java)
+                    ?: throw Exception("Không tìm thấy đơn hàng với ID: $orderId")
+
+                // Kiểm tra trạng thái hiện tại để tránh cập nhật trùng lặp
+                if (newStatus == "Đã hủy" && order.status == "Đã hủy") {
+                    _message.value = "Đơn hàng đã được hủy trước đó"
+                    return@launch
+                }
+
+                // Kiểm tra trạng thái hợp lệ để hủy
+                if (newStatus == "Đã hủy" && order.status !in listOf("Đang xử lí", "Đã xác nhận")) {
+                    throw Exception("Không thể hủy đơn hàng ở trạng thái ${order.status}")
+                }
+
+                // Cập nhật trạng thái đơn hàng
                 db.collection("orders")
                     .document(orderId)
                     .update("status", newStatus)
                     .await()
+
+                // Nếu trạng thái là "Đã hủy", trả lại số lượng và giảm số lượng đã bán
+                if (newStatus == "Đã hủy") {
+                    val product = order.product ?: throw Exception("Không tìm thấy sản phẩm trong đơn hàng")
+                    // Sử dụng giao dịch để đảm bảo cập nhật nguyên tử
+                    db.runTransaction { transaction ->
+                        val productRef = db.collection("product").document(product.ten_sp.toString())
+                        val productSnapshot = transaction.get(productRef)
+                        val currentStock = productSnapshot.getLong("soluong")?.toInt() ?: 0
+                        val currentSold = productSnapshot.getLong("so_luong_ban")?.toInt() ?: 0
+                        transaction.update(productRef, mapOf(
+                            "soluong" to currentStock + order.quantity,
+                            "so_luong_ban" to max(0, currentSold - order.quantity)
+                        ))
+                    }.await()
+                }
+
                 _message.value = "Cập nhật trạng thái đơn hàng thành công"
                 refreshOrders()
             } catch (e: Exception) {
@@ -192,6 +230,7 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
             }
         }
     }
+
     fun clearMessage() {
         _message.value = null
     }

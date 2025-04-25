@@ -7,8 +7,8 @@ data class Product(
     val id_sanpham: Int = 0,
     val firestoreId: String = "",
     val mo_ta: String = "",
-    val so_luong_ban: Int = 0,
-    val soluong: Int = 0,
+    var so_luong_ban: Int = 0,
+    var soluong: Int = 0,
     val ten_sp: String = "",
     val giam_gia: Int = 5
 )

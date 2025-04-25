@@ -27,7 +27,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.shopthucung.R
@@ -35,10 +34,8 @@ import com.example.shopthucung.model.Product
 import com.example.shopthucung.model.Review
 import com.example.shopthucung.model.User
 import com.example.shopthucung.user.viewmodel.CartViewModel
-import com.example.shopthucung.user.viewmodel.OrderViewModel
 import com.example.shopthucung.user.viewmodel.ProductDetailViewModel
 import com.google.firebase.Timestamp
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.net.URLEncoder
 import java.nio.charset.StandardCharsets
@@ -52,34 +49,49 @@ fun ProductDetailScreen(
     navController: NavController,
     productId: Int,
     viewModel: CartViewModel,
-    orderViewModel: OrderViewModel = viewModel(),
-    productDetailViewModel: ProductDetailViewModel = viewModel()
+    productDetailViewModel: ProductDetailViewModel
 ) {
     val productState = productDetailViewModel.productState.collectAsState()
     val reviewsState = productDetailViewModel.reviewsState.collectAsState()
     val usersState = productDetailViewModel.usersState.collectAsState()
+    val averageRating = productDetailViewModel.averageRating.collectAsState()
     val errorMessage = productDetailViewModel.errorMessage.collectAsState()
-    val cartErrorMessage = viewModel.errorMessage.collectAsState()
-    val cartSuccessMessage = viewModel.successMessage.collectAsState()
+    val successMessage = viewModel.successMessage.collectAsState()
 
     val coroutineScope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(Unit) {
-        productDetailViewModel.errorMessage.collectLatest { error ->
-            if (error != null) {
-                coroutineScope.launch {
-                    snackbarHostState.showSnackbar(
-                        message = error,
-                        duration = SnackbarDuration.Short
-                    )
-                    orderViewModel.clearMessages()
-                }
+    // Hiển thị thông báo lỗi
+    LaunchedEffect(errorMessage) {
+        if (errorMessage.value != null) {
+            Log.d("ProductDetailScreen", "Hiển thị lỗi: ${errorMessage.value}")
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    message = errorMessage.value!!,
+                    actionLabel = null,
+                    withDismissAction = false,
+                    duration = SnackbarDuration.Short
+                )
+                productDetailViewModel.clearMessages()
             }
         }
     }
 
-
+    // Hiển thị thông báo thành công với khóa duy nhất
+    LaunchedEffect(successMessage.value) {
+        if (successMessage.value != null) {
+            Log.d("ProductDetailScreen", "Hiển thị thông báo thành công: ${successMessage.value}")
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(
+                    message = successMessage.value!!,
+                    actionLabel = null,
+                    withDismissAction = false,
+                    duration = SnackbarDuration.Short
+                )
+                viewModel.clearMessages()
+            }
+        }
+    }
 
     LaunchedEffect(productId) {
         productDetailViewModel.fetchProduct(productId)
@@ -240,7 +252,7 @@ fun ProductDetailScreen(
 
                     // Quantity Available
                     Text(
-                        text = "Số lượng còn: ${product.soluong}",
+                        text = "Số lượng còn: ${product.soluong - product.so_luong_ban}",
                         fontSize = 16.sp,
                         color = Color(0xFF424242)
                     )
@@ -326,7 +338,7 @@ fun ProductDetailScreen(
 
                     // Rating Section
                     RatingSection(
-                        averageRating = product.danh_gia,
+                        averageRating = averageRating.value,
                         reviews = reviewsState.value,
                         users = usersState.value
                     )
@@ -373,7 +385,7 @@ fun RatingSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "${averageRating}/5",
+                text = String.format("%.1f/5", averageRating),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF424242)
@@ -384,9 +396,7 @@ fun RatingSection(
                     Icon(
                         painter = painterResource(R.drawable.ic_star),
                         contentDescription = "Sao",
-                        tint = if (index < averageRating.toInt()) Color(0xFFFFC107) else Color(
-                            0xFFE0E0E0
-                        ),
+                        tint = if (index < averageRating.toInt()) Color(0xFFFFC107) else Color(0xFFE0E0E0),
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -492,9 +502,7 @@ fun RatingSection(
                                 Icon(
                                     painter = painterResource(R.drawable.ic_star),
                                     contentDescription = "Sao",
-                                    tint = if (index < review.rating) Color(0xFFFFC107) else Color(
-                                        0xFFE0E0E0
-                                    ),
+                                    tint = if (index < review.rating) Color(0xFFFFC107) else Color(0xFFE0E0E0),
                                     modifier = Modifier.size(14.dp)
                                 )
                             }
@@ -554,3 +562,6 @@ fun formatTimestamp(timestamp: Timestamp?): String {
     }
 }
 
+fun Int.formatWithComma(): String {
+    return String.format("%,d", this).replace(",", ".")
+}
