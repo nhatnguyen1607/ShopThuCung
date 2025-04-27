@@ -32,7 +32,7 @@ class HomeViewModel(private val db: FirebaseFirestore = FirebaseFirestore.getIns
             try {
                 val trendingResult = db.collection("product")
                     .orderBy("so_luong_ban", Query.Direction.DESCENDING)
-                    .limit(3)
+                    .limit(5)
                     .get()
                     .await()
                 trendingProducts.value = trendingResult.toObjects(Product::class.java)
@@ -46,7 +46,7 @@ class HomeViewModel(private val db: FirebaseFirestore = FirebaseFirestore.getIns
             try {
                 val newResult = db.collection("product")
                     .orderBy("id_sanpham", Query.Direction.DESCENDING)
-                    .limit(3)
+                    .limit(5)
                     .get()
                     .await()
                 newProducts.value = newResult.toObjects(Product::class.java)
@@ -60,7 +60,7 @@ class HomeViewModel(private val db: FirebaseFirestore = FirebaseFirestore.getIns
             try {
                 val topRatedResult = db.collection("product")
                     .orderBy("danh_gia", Query.Direction.DESCENDING)
-                    .limit(3)
+                    .limit(5)
                     .get()
                     .await()
                 topRatedProducts.value = topRatedResult.toObjects(Product::class.java)

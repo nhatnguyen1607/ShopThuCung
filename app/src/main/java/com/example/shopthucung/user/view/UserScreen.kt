@@ -4,7 +4,6 @@ import android.R.id.message
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,6 +31,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.navigation.compose.rememberNavController
 import com.google.firebase.Timestamp
 import com.google.gson.Gson
+import java.net.URLEncoder
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -262,7 +262,8 @@ fun MyOrdersTab(
                         order = order,
                         onClick = {
                             val orderJson = Gson().toJson(order)
-                            navController.navigate("order_detail/$orderJson")
+                            val encodedOrderJson = URLEncoder.encode(orderJson, "UTF-8")
+                            navController.navigate("order_detail/$encodedOrderJson")
                         },
                         onReceivedClick = {
                             if (order.status == "Đang giao hàng") {
@@ -271,8 +272,8 @@ fun MyOrdersTab(
                                 viewModel.updateOrderStatus(order.orderId, "Đã hủy")
                             }
                         },
-                        navController = navController, // Truyền navController
-                        uid = uid // Truyền uid
+                        navController = navController,
+                        uid = uid
                     )
                 }
             }
@@ -288,7 +289,6 @@ fun OrderItem(
     navController: NavController,
     uid: String
 ) {
-    // Thêm trạng thái để kiểm soát việc hủy đơn
     var isCancelling by remember { mutableStateOf(false) }
 
     Card(
@@ -359,7 +359,6 @@ fun OrderItem(
                                         )
                                 )
                             }
-
                             "Đang giao hàng" -> {
                                 Text(
                                     text = order.status,
@@ -373,7 +372,6 @@ fun OrderItem(
                                         )
                                 )
                             }
-
                             "Giao thành công" -> {
                                 Text(
                                     text = order.status,
@@ -387,7 +385,6 @@ fun OrderItem(
                                         )
                                 )
                             }
-
                             "Đã hủy" -> {
                                 Text(
                                     text = order.status,
@@ -401,7 +398,6 @@ fun OrderItem(
                                         )
                                 )
                             }
-
                             else -> {
                                 Text(
                                     text = order.status,
@@ -494,7 +490,8 @@ fun OrderItem(
                     Button(
                         onClick = {
                             val orderJson = Gson().toJson(order)
-                            navController.navigate("rating/$orderJson/$uid")
+                            val encodedOrderJson = URLEncoder.encode(orderJson, "UTF-8")
+                            navController.navigate("rating/$encodedOrderJson/$uid")
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFFFF9900),
@@ -515,7 +512,6 @@ fun OrderItem(
         }
     }
 
-    // Reset isCancelling khi trạng thái đơn hàng thay đổi
     LaunchedEffect(order.status) {
         if (order.status != "Đang xử lí" && order.status != "Đã xác nhận") {
             isCancelling = false

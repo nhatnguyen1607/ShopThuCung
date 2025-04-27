@@ -2,7 +2,6 @@ package com.example.shopthucung.user.view
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -18,13 +17,15 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.shopthucung.model.Order
 import com.google.gson.Gson
+import java.net.URLDecoder
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderDetailScreen(navController: NavController, orderJson: String) {
-    val order = Gson().fromJson(orderJson, Order::class.java)
+    val decodedOrderJson = URLDecoder.decode(orderJson, "UTF-8")
+    val order = Gson().fromJson(decodedOrderJson, Order::class.java)
 
     val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     val formattedDate = dateFormat.format(order.timestamp.toDate())
@@ -206,8 +207,6 @@ fun OrderDetailScreen(navController: NavController, orderJson: String) {
                             color = Color(0xFF757575)
                         )
                     }
-
-
                 }
             }
             Row(

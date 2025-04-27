@@ -21,22 +21,22 @@ import com.example.shopthucung.model.Order
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.gson.Gson
+import java.net.URLDecoder
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RatingScreen(navController: NavController, orderJson: String, uid: String) {
-    // Chuyển đổi chuỗi JSON thành đối tượng Order
-    val order = Gson().fromJson(orderJson, Order::class.java)
+    // Giải mã orderJson
+    val decodedOrderJson = URLDecoder.decode(orderJson, "UTF-8")
+    val order = Gson().fromJson(decodedOrderJson, Order::class.java)
     val product = order.product ?: return
 
-    // State cho số sao và nội dung đánh giá
     var rating by remember { mutableStateOf(0) }
     var comment by remember { mutableStateOf("") }
     var isSubmitting by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val db = FirebaseFirestore.getInstance()
 
-    // Hiển thị thông báo lỗi nếu có
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(errorMessage) {
         errorMessage?.let {
@@ -81,7 +81,6 @@ fun RatingScreen(navController: NavController, orderJson: String, uid: String) {
                 .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Thông tin sản phẩm
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -103,7 +102,6 @@ fun RatingScreen(navController: NavController, orderJson: String, uid: String) {
                 )
             }
 
-            // Chọn số sao
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
@@ -127,7 +125,6 @@ fun RatingScreen(navController: NavController, orderJson: String, uid: String) {
                 }
             }
 
-            // Ô nhập nhận xét
             OutlinedTextField(
                 value = comment,
                 onValueChange = { comment = it },
@@ -141,7 +138,6 @@ fun RatingScreen(navController: NavController, orderJson: String, uid: String) {
                 )
             )
 
-            // Nút gửi đánh giá
             Button(
                 onClick = {
                     isSubmitting = true
@@ -152,14 +148,13 @@ fun RatingScreen(navController: NavController, orderJson: String, uid: String) {
                         "rating" to rating,
                         "timestamp" to Timestamp.now()
                     )
-                    // Lưu vào collection con "reviews" trong document có ID là id_sanpham
                     db.collection("products_reviews")
-                        .document(product.id_sanpham.toString()) // Sử dụng id_sanpham làm tên document
-                        .collection("reviews") // Collection con "reviews"
-                        .add(reviewData) // Thêm document mới với ID tự động
+                        .document(product.id_sanpham.toString())
+                        .collection("reviews")
+                        .add(reviewData)
                         .addOnSuccessListener {
                             isSubmitting = false
-                            navController.popBackStack() // Quay lại sau khi gửi
+                            navController.popBackStack()
                         }
                         .addOnFailureListener { e ->
                             isSubmitting = false

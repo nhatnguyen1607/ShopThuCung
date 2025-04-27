@@ -1,9 +1,7 @@
 package com.example.shopthucung.admin.view
 
 import android.content.Context
-import android.graphics.Bitmap
-import android.graphics.BitmapFactory
-import android.util.Base64
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
@@ -17,10 +15,8 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.shopthucung.admin.viewmodel.ProductViewModel
 import com.example.shopthucung.model.Product
-import com.google.firebase.storage.FirebaseStorage
+import com.example.shopthucung.utils.CloudinaryUtils
 import kotlinx.coroutines.launch
-import java.io.ByteArrayOutputStream
-import java.util.UUID
 
 @Composable
 fun ProductDetailScreen(
@@ -40,22 +36,9 @@ fun ProductDetailScreen(
     var soldQuantity by remember { mutableStateOf("") }
     var rating by remember { mutableStateOf("") }
     var discount by remember { mutableStateOf("") }
-    var imageBase64 by remember { mutableStateOf<String?>(null) }
+    var imageUri by remember { mutableStateOf<Uri?>(null) }
     var imageUrl by remember { mutableStateOf<String?>(null) }
     var isUploading by remember { mutableStateOf(false) }
-
-    // Chọn ảnh từ thư viện
-    val pickImageLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri ->
-        uri?.let {
-            val inputStream = context.contentResolver.openInputStream(it)
-            val bitmap = BitmapFactory.decodeStream(inputStream)
-            val base64String = bitmapToBase64(bitmap) // Chuyển ảnh sang Base64
-            imageBase64 = base64String
-            inputStream?.close()
-        }
-    }
 
     // Lấy thông tin sản phẩm khi màn hình được tải
     LaunchedEffect(productId) {
@@ -73,6 +56,12 @@ fun ProductDetailScreen(
         }
     }
 
+    // Chọn ảnh từ thư viện
+    val pickImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        imageUri = uri
+    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -151,7 +140,7 @@ fun ProductDetailScreen(
                 }
 
                 // Hiển thị thông báo nếu đã chọn ảnh mới
-                if (imageBase64 != null) {
+                if (imageUri != null) {
                     Text("Ảnh mới đã được chọn", style = MaterialTheme.typography.bodyMedium)
                 }
 
@@ -159,11 +148,14 @@ fun ProductDetailScreen(
                 Button(
                     onClick = {
                         product?.let { prod ->
-                            // Nếu đã chọn ảnh mới, tải ảnh lên Firebase Storage
-                            if (imageBase64 != null) {
+                            // Nếu đã chọn ảnh mới, tải ảnh lên Cloudinary
+                            if (imageUri != null) {
                                 isUploading = true
-                                uploadImageToFirebaseStorage(imageBase64!!) { url ->
+                                scope.launch {
+                                    val url = CloudinaryUtils.uploadToCloudinary(imageUri!!, context)
                                     if (url != null) {
+                                        // Cập nhật imageUrl để hiển thị trên giao diện
+                                        imageUrl = url
                                         val updatedProduct = prod.copy(
                                             ten_sp = name,
                                             gia_sp = price.toLongOrNull() ?: 0L,
@@ -175,14 +167,10 @@ fun ProductDetailScreen(
                                             giam_gia = discount.toIntOrNull() ?: 5
                                         )
                                         viewModel.updateProduct(updatedProduct)
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar("Cập nhật sản phẩm thành công")
-                                        }
+                                        snackbarHostState.showSnackbar("Cập nhật sản phẩm thành công")
                                         navController.popBackStack()
                                     } else {
-                                        scope.launch {
-                                            snackbarHostState.showSnackbar("Tải ảnh lên thất bại")
-                                        }
+                                        snackbarHostState.showSnackbar("Tải ảnh lên thất bại")
                                     }
                                     isUploading = false
                                 }
@@ -218,42 +206,4 @@ fun ProductDetailScreen(
             }
         }
     )
-}
-
-private fun bitmapToBase64(bitmap: Bitmap?): String? {
-    return try {
-        bitmap?.let {
-            val byteArrayOutputStream = ByteArrayOutputStream()
-            it.compress(Bitmap.CompressFormat.JPEG, 100, byteArrayOutputStream)
-            val byteArray = byteArrayOutputStream.toByteArray()
-            Base64.encodeToString(byteArray, Base64.DEFAULT)
-        }
-    } catch (e: Exception) {
-        e.printStackTrace()
-        null
-    }
-}
-
-private fun uploadImageToFirebaseStorage(base64String: String, onComplete: (String?) -> Unit) {
-    val storage = FirebaseStorage.getInstance()
-    val storageRef = storage.reference
-    val imageRef = storageRef.child("images/${UUID.randomUUID()}.jpg")
-
-    try {
-        val data = Base64.decode(base64String, Base64.DEFAULT)
-        imageRef.putBytes(data)
-            .addOnSuccessListener {
-                imageRef.downloadUrl.addOnSuccessListener { uri ->
-                    onComplete(uri.toString())
-                }.addOnFailureListener {
-                    onComplete(null)
-                }
-            }
-            .addOnFailureListener {
-                onComplete(null)
-            }
-    } catch (e: Exception) {
-        e.printStackTrace()
-        onComplete(null)
-    }
 }
