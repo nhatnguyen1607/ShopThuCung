@@ -24,6 +24,9 @@ class ProductDetailViewModel : ViewModel() {
     private val _reviewsState = MutableStateFlow<List<Review>>(emptyList())
     val reviewsState: StateFlow<List<Review>> = _reviewsState.asStateFlow()
 
+    // Trạng thái cho danh sách đánh giá gốc (chưa lọc)
+    private val _originalReviewsState = MutableStateFlow<List<Review>>(emptyList())
+
     // Trạng thái cho thông tin người dùng
     private val _usersState = MutableStateFlow<Map<String, User>>(emptyMap())
     val usersState: StateFlow<Map<String, User>> = _usersState.asStateFlow()
@@ -35,6 +38,10 @@ class ProductDetailViewModel : ViewModel() {
     // Trạng thái cho thông báo lỗi
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
+    // Trạng thái cho bộ lọc số sao
+    private val _selectedFilter = MutableStateFlow<Int?>(null)
+    val selectedFilter: StateFlow<Int?> = _selectedFilter.asStateFlow()
 
     fun fetchProduct(productId: Int) {
         viewModelScope.launch {
@@ -68,14 +75,15 @@ class ProductDetailViewModel : ViewModel() {
                 val reviews = snapshot.documents.mapNotNull { doc ->
                     doc.toObject(Review::class.java)?.copy(id = doc.id)
                 }
-                _reviewsState.value = reviews
+                _originalReviewsState.value = reviews // Lưu danh sách đánh giá gốc
+                _reviewsState.value = reviews // Cập nhật danh sách hiển thị
 
                 // Tính số sao trung bình
                 if (reviews.isNotEmpty()) {
                     val totalRating = reviews.sumOf { it.rating }
                     _averageRating.value = totalRating.toFloat() / reviews.size
                 } else {
-                    _averageRating.value = 0f // Nếu không có đánh giá, số sao trung bình là 0
+                    _averageRating.value = 0f
                 }
 
                 // Lấy thông tin người dùng từ idUser trong các đánh giá
@@ -101,6 +109,16 @@ class ProductDetailViewModel : ViewModel() {
             } catch (e: Exception) {
                 _errorMessage.value = "Lỗi khi tải đánh giá: ${e.message}"
             }
+        }
+    }
+
+    // Hàm thiết lập bộ lọc
+    fun setFilter(stars: Int?) {
+        _selectedFilter.value = stars
+        _reviewsState.value = if (stars == null) {
+            _originalReviewsState.value // Hiển thị tất cả đánh giá nếu không có bộ lọc
+        } else {
+            _originalReviewsState.value.filter { it.rating == stars } // Lọc theo số sao
         }
     }
 

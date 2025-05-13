@@ -164,8 +164,7 @@ fun CartScreen(
                                 cartItemsJson,
                                 StandardCharsets.UTF_8.toString()
                             )
-                            navController.navigate("checkout?cartItems=$encodedCartItems")
-                        },
+                            navController.navigate("checkout?product=&quantity=1&cartItems=$encodedCartItems")                        },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp),
@@ -284,7 +283,7 @@ fun CartItemRow(
         ) {
             // Hình ảnh sản phẩm
             AsyncImage(
-                model = product?.anh_sp,
+                model = product?.anh_sp?.firstOrNull() ?: "",
                 contentDescription = product?.ten_sp,
                 modifier = Modifier
                     .size(80.dp)
@@ -457,24 +456,32 @@ fun CartItemRow(
     }
 }
 
-// Hàm tiện ích để mã hóa cartItems thành JSON
 fun List<CartItem>.toJson(): String {
     val items = this.joinToString(",") { cartItem ->
         val product = cartItem.product ?: return@joinToString "{}"
+        // Chuyển danh sách anh_sp thành chuỗi JSON hợp lệ
+        val anhSpJson = product.anh_sp.joinToString(
+            separator = ",",
+            prefix = "[",
+            postfix = "]"
+        ) { "\"${it.replace("\"", "\\\"")}\"" }
         """{
             "product": {
-                "id_sanpham": "${product.id_sanpham}",
+                "id_sanpham": ${product.id_sanpham},
                 "ten_sp": "${product.ten_sp.replace("\"", "\\\"")}",
                 "gia_sp": ${product.gia_sp},
                 "giam_gia": ${product.giam_gia},
-                "anh_sp": "${product.anh_sp}",
+                "anh_sp": $anhSpJson,
                 "mo_ta": "${product.mo_ta.replace("\"", "\\\"")}",
                 "soluong": ${product.soluong},
                 "so_luong_ban": ${product.so_luong_ban},
-                "danh_gia": ${product.danh_gia}
+                "danh_gia": ${product.danh_gia},
+                "firestoreId": "${product.firestoreId}"
             },
             "quantity": ${cartItem.quantity},
-            "cartIndex": ${cartItem.cartIndex}
+            "cartIndex": ${cartItem.cartIndex},
+            "productId": ${cartItem.productId},
+            "userId": "${cartItem.userId}"
         }"""
     }
     return "[$items]"

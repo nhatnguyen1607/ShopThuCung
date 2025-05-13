@@ -84,11 +84,16 @@ class CartViewModel : ViewModel() {
                     val newDocId = "${userId}_$newIndex"
                     Log.d("CartViewModel", "Tạo document mới với ID: $newDocId")
 
+                    // Đảm bảo anh_sp là List<String> trước khi lưu vào Firestore
+                    val productToSave = product.copy(
+                        anh_sp = if (product.anh_sp.isEmpty()) emptyList() else product.anh_sp
+                    )
+
                     val cartItem = hashMapOf(
                         "userId" to userId,
                         "productId" to product.id_sanpham,
                         "quantity" to 1,
-                        "product" to product,
+                        "product" to productToSave, // Sử dụng product đã được chuẩn hóa
                         "cartIndex" to newIndex
                     )
 
@@ -104,7 +109,7 @@ class CartViewModel : ViewModel() {
                         userId = userId,
                         productId = product.id_sanpham,
                         quantity = 1,
-                        product = product,
+                        product = productToSave,
                         cartIndex = newIndex
                     )
                     fetchCartItems() // Đồng bộ lại từ Firestore
@@ -133,8 +138,30 @@ class CartViewModel : ViewModel() {
                     .await()
 
                 val cartItems = result.documents.mapNotNull { doc ->
-                    doc.toObject(CartItem::class.java)?.apply {
-                        Log.d("CartViewModel", "Lấy được mục giỏ hàng: ${this.product?.ten_sp}, quantity: ${this.quantity}")
+                    try {
+                        val cartItem = doc.toObject(CartItem::class.java)
+                        if (cartItem != null) {
+                            // Xử lý trường hợp product.anh_sp không đồng nhất
+                            val product = cartItem.product?.let { prod ->
+                                val anhSp = doc.get("product.anh_sp")
+                                val updatedAnhSp = when (anhSp) {
+                                    is String -> listOf(anhSp) // Nếu là chuỗi, chuyển thành danh sách
+                                    is List<*> -> anhSp.filterIsInstance<String>() // Nếu là danh sách, giữ nguyên (lọc để đảm bảo là List<String>)
+                                    else -> emptyList() // Trường hợp khác, trả về danh sách rỗng
+                                }
+                                prod.copy(anh_sp = updatedAnhSp)
+                            }
+                            cartItem.copy(product = product)
+                        } else {
+                            null
+                        }
+                    } catch (e: Exception) {
+                        Log.e("CartViewModel", "Lỗi khi deserialize CartItem: ${e.message}", e)
+                        null
+                    }.apply {
+                        if (this != null) {
+                            Log.d("CartViewModel", "Lấy được mục giỏ hàng: ${this.product?.ten_sp}, quantity: ${this.quantity}")
+                        }
                     }
                 }
                 _cartItemsState.value = cartItems

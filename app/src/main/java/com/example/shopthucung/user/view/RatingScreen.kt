@@ -22,6 +22,7 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.gson.Gson
 import java.net.URLDecoder
+import kotlinx.coroutines.tasks.await
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,7 +87,7 @@ fun RatingScreen(navController: NavController, orderJson: String, uid: String) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 AsyncImage(
-                    model = product.anh_sp ?: "",
+                    model = order.product?.anh_sp?.firstOrNull() ?: "",
                     contentDescription = "Ảnh sản phẩm",
                     modifier = Modifier
                         .size(80.dp)
@@ -148,13 +149,56 @@ fun RatingScreen(navController: NavController, orderJson: String, uid: String) {
                         "rating" to rating,
                         "timestamp" to Timestamp.now()
                     )
+
+                    // Thêm đánh giá vào sub-collection reviews
                     db.collection("products_reviews")
                         .document(product.id_sanpham.toString())
                         .collection("reviews")
                         .add(reviewData)
                         .addOnSuccessListener {
-                            isSubmitting = false
-                            navController.popBackStack()
+                            // Sau khi thêm đánh giá thành công, tính trung bình rating và cập nhật danh_gia
+                            db.collection("products_reviews")
+                                .document(product.id_sanpham.toString())
+                                .collection("reviews")
+                                .get()
+                                .addOnSuccessListener { snapshot ->
+                                    val reviews = snapshot.documents
+                                    if (reviews.isNotEmpty()) {
+                                        // Tính trung bình rating
+                                        val totalRating = reviews.sumOf { it.getLong("rating")?.toInt() ?: 0 }
+                                        val averageRating = totalRating.toDouble() / reviews.size
+
+                                        // Cập nhật danh_gia trong collection product
+                                        db.collection("product")
+                                            .document(product.ten_sp)
+                                            .update("danh_gia", averageRating.toInt())
+                                            .addOnSuccessListener {
+                                                isSubmitting = false
+                                                navController.popBackStack()
+                                            }
+                                            .addOnFailureListener { e ->
+                                                isSubmitting = false
+                                                errorMessage = "Lỗi khi cập nhật đánh giá: ${e.message}"
+                                            }
+                                    } else {
+                                        // Nếu không có đánh giá nào, đặt danh_gia = rating vừa thêm
+                                        db.collection("product")
+                                            .document(product.ten_sp)
+                                            .update("danh_gia", rating)
+                                            .addOnSuccessListener {
+                                                isSubmitting = false
+                                                navController.popBackStack()
+                                            }
+                                            .addOnFailureListener { e ->
+                                                isSubmitting = false
+                                                errorMessage = "Lỗi khi cập nhật đánh giá: ${e.message}"
+                                            }
+                                    }
+                                }
+                                .addOnFailureListener { e ->
+                                    isSubmitting = false
+                                    errorMessage = "Lỗi khi lấy danh sách đánh giá: ${e.message}"
+                                }
                         }
                         .addOnFailureListener { e ->
                             isSubmitting = false

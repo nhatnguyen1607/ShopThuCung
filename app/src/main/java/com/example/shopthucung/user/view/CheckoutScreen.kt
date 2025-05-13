@@ -52,7 +52,7 @@ fun CheckoutScreen(
     cartViewModel: CartViewModel,
     product: Product? = null,
     quantity: Int = 1,
-    cartItems: List<CartItem>? = null
+    cartItems: List<CartItem>? = null // Dữ liệu đã được giải mã từ NavGraph.kt
 ) {
     val orders = orderViewModel.pendingOrders.collectAsState()
     val vnpayUrls = orderViewModel.vnpayUrls.collectAsState()
@@ -83,23 +83,6 @@ fun CheckoutScreen(
         Log.d("CheckoutScreen", "Orders: ${orders.value}, VNPay URLs: ${vnpayUrls.value}")
     }
 
-//    // Xử lý lỗi
-//    LaunchedEffect(Unit) {
-//        orderViewModel.errorMessage.collectLatest { error ->
-//            if (error != null) {
-//                Log.d("CheckoutScreen", "Order error message: $error")
-//                coroutineScope.launch {
-//                    snackbarHostState.showSnackbar(
-//                        message = error,
-//                        duration = SnackbarDuration.Short
-//                    )
-//                    orderViewModel.clearMessages()
-//                }
-//            }
-//        }
-//    }
-//
-//    // Xử lý thành công
     LaunchedEffect(Unit) {
         orderViewModel.successMessage.collectLatest { success ->
             if (success != null) {
@@ -315,16 +298,6 @@ fun CheckoutScreen(
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
-//                successMessage.value?.let { success ->
-//                    Spacer(modifier = Modifier.height(16.dp))
-//                    Text(
-//                        text = "Thành công: $success",
-//                        color = Color.Green,
-//                        fontSize = 14.sp,
-//                        modifier = Modifier.fillMaxWidth(),
-//                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-//                    )
-//                }
             }
         }
     }
@@ -361,8 +334,7 @@ fun OrderItemCard(order: Order) {
                     .background(Color(0xFFE0E0E0))
             ) {
                 AsyncImage(
-                    model = product.anh_sp.takeIf { it.isNotEmpty() }
-                        ?: R.drawable.placeholder_image,
+                    model = product.anh_sp.firstOrNull() ?: R.drawable.placeholder_image, // Lấy ảnh đầu tiên từ danh sách
                     contentDescription = product.ten_sp,
                     modifier = Modifier.fillMaxSize(),
                     error = painterResource(R.drawable.placeholder_image)

@@ -84,4 +84,6 @@ dependencies {
     implementation ("com.google.code.gson:gson:2.10.1")
     implementation ("com.cloudinary:cloudinary-android:2.0.0")
     implementation ("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation ("com.google.accompanist:accompanist-pager:0.34.0")
+    implementation ("com.google.accompanist:accompanist-pager-indicators:0.34.0")
 }

@@ -1,7 +1,7 @@
 package com.example.shopthucung.model
 
 data class Product(
-    val anh_sp: String = "",
+    val anh_sp: List<String> = emptyList(),
     val danh_gia: Float = 0f,
     val gia_sp: Long = 0L,
     val id_sanpham: Int = 0,

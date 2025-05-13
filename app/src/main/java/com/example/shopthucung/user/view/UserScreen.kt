@@ -411,7 +411,7 @@ fun OrderItem(
                 }
 
                 AsyncImage(
-                    model = order.product?.anh_sp ?: "",
+                    model = order.product?.anh_sp?.firstOrNull() ?: "", // Lấy ảnh đầu tiên từ danh sách
                     contentDescription = "Ảnh sản phẩm",
                     modifier = Modifier
                         .size(80.dp)
@@ -519,7 +519,6 @@ fun OrderItem(
     }
 }
 
-
 @Composable
 fun PersonalInfoTab(user: User?) {
     LazyColumn(
@@ -588,16 +587,6 @@ fun PersonalInfoTab(user: User?) {
                     )
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Button(
-                    onClick = { /* TODO: Gửi OTP để xác thực */ },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFF8BBD0),
-                        contentColor = Color.White
-                    ),
-                    modifier = Modifier.height(56.dp)
-                ) {
-                    Text("Xác thực OTP")
-                }
             }
         }
 

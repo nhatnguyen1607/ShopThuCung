@@ -10,6 +10,7 @@ data class Order(
     @PropertyName("quantity") val quantity: Int = 0,
     @PropertyName("totalPrice") val totalPrice: Long = 0,
     @PropertyName("paymentMethod") val paymentMethod: String = "",
-    @PropertyName("status") val status: String = "Pending",
-    @PropertyName("timestamp") val timestamp: Timestamp = Timestamp.now()
+    @PropertyName("status") val status: String = "",
+    @PropertyName("bookingDate") val bookingDate: Timestamp? = Timestamp.now(),
+    @PropertyName("deliveryDate") val deliveryDate: Timestamp? = Timestamp.now()
 )

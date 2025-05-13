@@ -114,11 +114,14 @@ fun NavGraph(navController: NavHostController) {
                         ten_sp = jsonObject.getString("ten_sp"),
                         gia_sp = jsonObject.getLong("gia_sp"),
                         giam_gia = jsonObject.getInt("giam_gia"),
-                        anh_sp = jsonObject.getString("anh_sp"),
+                        anh_sp = jsonObject.getJSONArray("anh_sp").let { jsonArray ->
+                            (0 until jsonArray.length()).map { jsonArray.getString(it) }
+                        },
                         mo_ta = jsonObject.getString("mo_ta"),
                         soluong = jsonObject.getInt("soluong"),
                         so_luong_ban = jsonObject.getInt("so_luong_ban"),
-                        danh_gia = jsonObject.getDouble("danh_gia").toFloat()
+                        danh_gia = jsonObject.getDouble("danh_gia").toFloat(),
+                        firestoreId = jsonObject.optString("firestoreId", "")
                     )
                 } else {
                     null
@@ -138,18 +141,23 @@ fun NavGraph(navController: NavHostController) {
                     )
                     (0 until jsonArray.length()).map { index ->
                         val jsonObject = jsonArray.getJSONObject(index)
-                        val productJson = jsonObject.getJSONObject("product")
+                        val productJson = jsonObject.getJSONObject("product") // Truy cập product
                         CartItem(
+                            userId = jsonObject.optString("userId", ""),
+                            productId = jsonObject.optInt("productId", 0),
                             product = Product(
                                 id_sanpham = productJson.getInt("id_sanpham"),
                                 ten_sp = productJson.getString("ten_sp"),
                                 gia_sp = productJson.getLong("gia_sp"),
                                 giam_gia = productJson.getInt("giam_gia"),
-                                anh_sp = productJson.getString("anh_sp"),
+                                anh_sp = productJson.getJSONArray("anh_sp").let { jsonArray ->
+                                    (0 until jsonArray.length()).map { jsonArray.getString(it) }
+                                }, // Truy cập anh_sp từ productJson
                                 mo_ta = productJson.getString("mo_ta"),
                                 soluong = productJson.getInt("soluong"),
                                 so_luong_ban = productJson.getInt("so_luong_ban"),
-                                danh_gia = productJson.getDouble("danh_gia").toFloat()
+                                danh_gia = productJson.getDouble("danh_gia").toFloat(),
+                                firestoreId = productJson.optString("firestoreId", "")
                             ),
                             quantity = jsonObject.getInt("quantity"),
                             cartIndex = jsonObject.getInt("cartIndex")

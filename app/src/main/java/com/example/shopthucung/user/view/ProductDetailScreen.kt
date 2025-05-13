@@ -4,6 +4,8 @@ import android.annotation.SuppressLint
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -177,7 +180,9 @@ fun ProductDetailScreen(
                         .verticalScroll(rememberScrollState())
                         .padding(16.dp)
                 ) {
-                    // Product Image
+                    // Product Image Carousel
+                    val pageCount = product.anh_sp.size.coerceAtLeast(1)
+                    val pagerState = rememberPagerState(initialPage = 0) { pageCount }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -185,13 +190,36 @@ fun ProductDetailScreen(
                             .clip(RoundedCornerShape(16.dp))
                             .background(Color(0xFFE0E0E0))
                     ) {
-                        AsyncImage(
-                            model = product.anh_sp.takeIf { it.isNotEmpty() }
-                                ?: R.drawable.placeholder_image,
-                            contentDescription = product.ten_sp,
-                            modifier = Modifier.fillMaxSize(),
-                            error = painterResource(R.drawable.placeholder_image)
-                        )
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier.fillMaxSize()
+                        ) { page ->
+                            AsyncImage(
+                                model = product.anh_sp.getOrNull(page) ?: R.drawable.placeholder_image,
+                                contentDescription = "${product.ten_sp} - Ảnh $page",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                                error = painterResource(R.drawable.placeholder_image)
+                            )
+                        }
+                        // Indicators
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 8.dp),
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            repeat(pageCount) { iteration ->
+                                val color = if (pagerState.currentPage == iteration) Color.White else Color.Gray
+                                Box(
+                                    modifier = Modifier
+                                        .padding(2.dp)
+                                        .clip(CircleShape)
+                                        .background(color)
+                                        .size(8.dp)
+                                )
+                            }
+                        }
                         if (product.giam_gia > 0) {
                             Text(
                                 text = "-${product.giam_gia}%",
@@ -340,7 +368,9 @@ fun ProductDetailScreen(
                     RatingSection(
                         averageRating = averageRating.value,
                         reviews = reviewsState.value,
-                        users = usersState.value
+                        users = usersState.value,
+                        selectedFilter = productDetailViewModel.selectedFilter.collectAsState().value,
+                        onFilterSelected = { filter -> productDetailViewModel.setFilter(filter) }
                     )
                 }
             }
@@ -349,12 +379,17 @@ fun ProductDetailScreen(
 }
 
 fun Product.toJson(): String {
+    val anhSpJson = anh_sp.joinToString(
+        separator = ",",
+        prefix = "[",
+        postfix = "]"
+    ) { "\"${it.replace("\"", "\\\"")}\"" }
     return """{
         "id_sanpham": "${id_sanpham}",
         "ten_sp": "${ten_sp}",
         "gia_sp": ${gia_sp},
         "giam_gia": ${giam_gia},
-        "anh_sp": "${anh_sp}",
+        "anh_sp": $anhSpJson,
         "mo_ta": "${mo_ta.replace("\"", "\\\"")}",
         "soluong": ${soluong},
         "so_luong_ban": ${so_luong_ban},
@@ -366,13 +401,15 @@ fun Product.toJson(): String {
 fun RatingSection(
     averageRating: Float,
     reviews: List<Review>,
-    users: Map<String, User>
+    users: Map<String, User>,
+    selectedFilter: Int?, // Thêm tham số để theo dõi bộ lọc
+    onFilterSelected: (Int?) -> Unit // Thêm callback để xử lý lựa chọn bộ lọc
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color.White, RoundedCornerShape(8.dp))
-            .padding(16.dp)
+            .padding(12.dp)
     ) {
         Text(
             text = "ĐÁNH GIÁ",
@@ -461,14 +498,44 @@ fun RatingSection(
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            FilterButton(text = "ALL", color = Color(0xFF2196F3))
-            FilterButton(text = "5", color = Color(0xFF4CAF50))
-            FilterButton(text = "4", color = Color(0xFF4CAF50))
-            FilterButton(text = "3", color = Color(0xFFFFC107))
-            FilterButton(text = "2", color = Color(0xFFFF9800))
-            FilterButton(text = "1", color = Color(0xFFF44336))
+            FilterButton(
+                text = "ALL",
+                color = Color(0xFF2196F3),
+                isSelected = selectedFilter == null,
+                onClick = { onFilterSelected(null) }
+            )
+            FilterButton(
+                text = "5",
+                color = Color(0xFF4CAF50),
+                isSelected = selectedFilter == 5,
+                onClick = { onFilterSelected(5) }
+            )
+            FilterButton(
+                text = "4",
+                color = Color(0xFF4CAF50),
+                isSelected = selectedFilter == 4,
+                onClick = { onFilterSelected(4) }
+            )
+            FilterButton(
+                text = "3",
+                color = Color(0xFFFFC107),
+                isSelected = selectedFilter == 3,
+                onClick = { onFilterSelected(3) }
+            )
+            FilterButton(
+                text = "2",
+                color = Color(0xFFFF9800),
+                isSelected = selectedFilter == 2,
+                onClick = { onFilterSelected(2) }
+            )
+            FilterButton(
+                text = "1",
+                color = Color(0xFFF44336),
+                isSelected = selectedFilter == 1,
+                onClick = { onFilterSelected(1) }
+            )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -533,13 +600,18 @@ fun RatingSection(
 }
 
 @Composable
-fun FilterButton(text: String, color: Color) {
+fun FilterButton(
+    text: String,
+    color: Color,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
     Button(
-        onClick = { /* TODO: Handle filter */ },
+        onClick = onClick,
         modifier = Modifier.height(32.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = color,
-            contentColor = Color.White
+            containerColor = if (isSelected) color else Color(0xFFE0E0E0),
+            contentColor = if (isSelected) Color.White else Color(0xFF424242)
         ),
         shape = RoundedCornerShape(16.dp),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
