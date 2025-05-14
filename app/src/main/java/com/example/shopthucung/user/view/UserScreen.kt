@@ -22,14 +22,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.shopthucung.model.Order
-import com.example.shopthucung.model.Product
 import com.example.shopthucung.model.User
 import com.example.shopthucung.user.viewmodel.UserViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import androidx.compose.ui.tooling.preview.Preview
-import androidx.navigation.compose.rememberNavController
-import com.google.firebase.Timestamp
 import com.google.gson.Gson
 import java.net.URLEncoder
 

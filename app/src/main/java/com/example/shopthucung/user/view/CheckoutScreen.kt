@@ -52,7 +52,7 @@ fun CheckoutScreen(
     cartViewModel: CartViewModel,
     product: Product? = null,
     quantity: Int = 1,
-    cartItems: List<CartItem>? = null // Dữ liệu đã được giải mã từ NavGraph.kt
+    cartItems: List<CartItem>? = null
 ) {
     val orders = orderViewModel.pendingOrders.collectAsState()
     val vnpayUrls = orderViewModel.vnpayUrls.collectAsState()

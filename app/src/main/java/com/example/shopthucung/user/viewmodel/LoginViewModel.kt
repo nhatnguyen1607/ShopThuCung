@@ -12,8 +12,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 class LoginViewModel(
-    private val firestore: FirebaseFirestore,
-//    private val activity: Activity
+    private val firestore: FirebaseFirestore
 ) : ViewModel() {
     private val auth = FirebaseAuth.getInstance()
 
@@ -26,32 +25,62 @@ class LoginViewModel(
     fun loginUser(email: String, password: String, onResult: (Boolean, String?) -> Unit) {
         viewModelScope.launch {
             try {
-                println("LoginViewModel: Attempting to login with email: $email")
                 val result = auth.signInWithEmailAndPassword(email, password).await()
                 val currentUser = result.user
                 if (currentUser != null) {
                     val idUser = currentUser.uid
-                    println("LoginViewModel: Login successful, user UID: $idUser")
                     val userDoc = firestore.collection("user").document(idUser).get().await()
                     if (!userDoc.exists()) {
-                        println("LoginViewModel: Document does not exist, creating new document for UID: $idUser")
                         val userData = User(
                             diaChi = "",
                             sdt = "",
                             email = email,
                             hoVaTen = "",
                             idUser = idUser,
-                            matKhau = password
+                            matKhau = password,
+                            active = true,
+                            role = "user"
                         )
                         firestore.collection("user").document(idUser).set(userData).await()
-                        println("LoginViewModel: Document created successfully for UID: $idUser")
+                        val newUserDoc = firestore.collection("user").document(idUser).get().await()
+                        val role = newUserDoc.getString("role") ?: "user"
+                        val isActive = newUserDoc.getBoolean("active") ?: true
+
+                        if (role == "user" && isActive == true) {
+                            _isLoggedIn.value = true
+                            onResult(true, "Đăng nhập thành công")
+                        } else if (isActive == false) {
+                            auth.signOut()
+                            _isLoggedIn.value = false
+                            _message.value = "Tài khoản đã bị khóa, vui lòng liên hệ admin để mở khóa"
+                            onResult(false, "Tài khoản đã bị khóa, vui lòng liên hệ admin để mở khóa")
+                        } else {
+                            auth.signOut()
+                            _isLoggedIn.value = false
+                            _message.value = "Chỉ người dùng có vai trò 'user' mới được phép đăng nhập"
+                            onResult(false, "Chỉ người dùng có vai trò 'user' mới được phép đăng nhập")
+                        }
                     } else {
-                        println("LoginViewModel: Document already exists for UID: $idUser")
+                        val role = userDoc.getString("role") ?: "user"
+                        val isActive = userDoc.getBoolean("active") ?: true
+
+                        if (role == "user" && isActive == true) {
+                            _isLoggedIn.value = true
+                            onResult(true, "Đăng nhập thành công")
+                        } else if (isActive == false) {
+                            auth.signOut()
+                            _isLoggedIn.value = false
+                            _message.value = "Tài khoản đã bị khóa, vui lòng liên hệ admin để mở khóa"
+                            onResult(false, "Tài khoản đã bị khóa, vui lòng liên hệ admin để mở khóa")
+                        } else {
+                            auth.signOut()
+                            _isLoggedIn.value = false
+                            _message.value = "Chỉ người dùng có vai trò 'user' mới được phép đăng nhập"
+                            onResult(false, "Chỉ người dùng có vai trò 'user' mới được phép đăng nhập")
+                        }
                     }
-                    _isLoggedIn.value = true
-                    onResult(true, "Đăng nhập thành công")
                 } else {
-                    println("LoginViewModel: Login failed, no user found")
+                    _message.value = "Không thể đăng nhập"
                     onResult(false, "Không thể đăng nhập")
                 }
             } catch (e: Exception) {
@@ -62,12 +91,10 @@ class LoginViewModel(
         }
     }
 
-    fun logout() {
-        auth.signOut()
-        _isLoggedIn.value = false
-    }
-
     fun clearMessage() {
         _message.value = null
+    }
+    fun setMessage(msg: String) {
+        _message.value = msg
     }
 }

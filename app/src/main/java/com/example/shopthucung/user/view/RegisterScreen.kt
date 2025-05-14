@@ -32,6 +32,8 @@ fun RegisterScreen(navController: NavController, viewModel: RegisterViewModel) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var hoVaTen by rememberSaveable { mutableStateOf("") }
+    var diaChi by rememberSaveable { mutableStateOf("") }
+    var sdt by rememberSaveable { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -40,12 +42,17 @@ fun RegisterScreen(navController: NavController, viewModel: RegisterViewModel) {
     // Lắng nghe thông báo từ RegisterViewModel
     val message by viewModel.message.collectAsState()
 
-    // Hiển thị thông báo lỗi nếu có
+    // Hiển thị thông báo nếu có
     LaunchedEffect(message) {
         message?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessage()
         }
+    }
+
+    // Hàm kiểm tra email hợp lệ
+    fun isValidEmail(email: String): Boolean {
+        return email.matches(Regex("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\$"))
     }
 
     Scaffold(
@@ -74,7 +81,12 @@ fun RegisterScreen(navController: NavController, viewModel: RegisterViewModel) {
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("Đăng ký", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4A90E2))
+                Text(
+                    "Đăng ký",
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF4A90E2)
+                )
                 Spacer(modifier = Modifier.height(24.dp))
 
                 OutlinedTextField(
@@ -113,27 +125,55 @@ fun RegisterScreen(navController: NavController, viewModel: RegisterViewModel) {
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
                 )
 
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = diaChi,
+                    onValueChange = { diaChi = it },
+                    label = { Text("Địa chỉ") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                OutlinedTextField(
+                    value = sdt,
+                    onValueChange = { sdt = it },
+                    label = { Text("Số điện thoại") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+                )
+
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Button(
                     onClick = {
-                        if (email.isNotBlank() && password.isNotBlank() && hoVaTen.isNotBlank()) {
-                            isLoading = true
-                            viewModel.registerUser(email, password, hoVaTen) { success, result ->
-                                isLoading = false
-                                if (success) {
-                                    println("RegisterScreen: Registration successful, navigating to login")
-                                    navController.navigate("login") {
-                                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                        if (email.isNotBlank() && password.isNotBlank() && hoVaTen.isNotBlank() && diaChi.isNotBlank() && sdt.isNotBlank()) {
+                            if (isValidEmail(email)) {
+                                isLoading = true
+                                viewModel.registerUser(email, password, hoVaTen, diaChi, sdt) { success, result ->
+                                    isLoading = false
+                                    if (success) {
+                                        println("RegisterScreen: Registration successful, navigating to verification")
+                                        navController.navigate("verification")
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(result ?: "Vui lòng kiểm tra email để xác minh")
+                                        }
+                                    } else {
+                                        coroutineScope.launch {
+                                            snackbarHostState.showSnackbar(result ?: "Đăng ký thất bại!")
+                                        }
                                     }
-                                } else {
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(result ?: "Đăng ký thất bại!")
-                                    }
+                                }
+                            } else {
+                                coroutineScope.launch {
+                                    snackbarHostState.showSnackbar("Email không hợp lệ!")
                                 }
                             }
                         } else {
-                            coroutineScope.launch { snackbarHostState.showSnackbar("Vui lòng nhập đầy đủ thông tin!") }
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Vui lòng nhập đầy đủ thông tin!")
+                            }
                         }
                     },
                     modifier = Modifier.fillMaxWidth().height(48.dp),

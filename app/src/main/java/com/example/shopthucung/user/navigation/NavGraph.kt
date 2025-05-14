@@ -1,10 +1,8 @@
 package com.example.shopthucung.user.navigation
 
-import android.annotation.SuppressLint
-import android.app.Activity
 import android.util.Log
+import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -13,52 +11,47 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
-import com.example.shopthucung.user.view.CartScreen
-import com.example.shopthucung.user.view.CheckoutScreen
-import com.example.shopthucung.user.view.HomeScreen
-import com.example.shopthucung.user.view.LoginScreen
-import com.example.shopthucung.user.view.ProductDetailScreen
-import com.example.shopthucung.user.view.RegisterScreen
-import com.example.shopthucung.user.view.UserScreen
-import com.example.shopthucung.user.viewmodel.CartViewModel
-import com.example.shopthucung.user.viewmodel.HomeViewModel
-import com.example.shopthucung.user.viewmodel.LoginViewModel
-import com.example.shopthucung.user.viewmodel.OrderViewModel
-import com.example.shopthucung.user.viewmodel.ProductDetailViewModel
-import com.example.shopthucung.user.viewmodel.RegisterViewModel
+import com.example.shopthucung.user.view.*
+import com.example.shopthucung.user.viewmodel.*
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.example.shopthucung.model.Product
+import com.example.shopthucung.model.CartItem
 import org.json.JSONObject
+import org.json.JSONArray
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
-import com.example.shopthucung.model.CartItem
-import com.example.shopthucung.user.view.OrderDetailScreen
-import com.example.shopthucung.user.view.RatingScreen
-import org.json.JSONArray
 
-
-@SuppressLint("ContextCastToActivity")
 @Composable
 fun NavGraph(navController: NavHostController) {
     val firestore = FirebaseFirestore.getInstance()
+    val auth = FirebaseAuth.getInstance()
     val loginViewModel = LoginViewModel(firestore)
-    val registerViewModel = RegisterViewModel(firestore)
-    val homeViewModel = HomeViewModel(firestore)
 
+    val activity = LocalActivity.current
+    val registerViewModel: RegisterViewModel = viewModel(
+        factory = RegisterViewModelFactory(firestore, activity)
+    )
+
+    val homeViewModel = HomeViewModel(firestore)
     val storeOwner = LocalViewModelStoreOwner.current!!
     val cartViewModel = viewModel<CartViewModel>(storeOwner)
     val orderViewModel = viewModel<OrderViewModel>(storeOwner)
 
-
     NavHost(
         navController = navController,
-        startDestination = "login"
+        startDestination = if (auth.currentUser != null) "home" else "login"
     ) {
         composable("login") {
+            auth.signOut()
+            loginViewModel.clearMessage()
             LoginScreen(navController = navController, viewModel = loginViewModel)
         }
         composable("register") {
             RegisterScreen(navController = navController, viewModel = registerViewModel)
+        }
+        composable("verification") {
+            VerificationScreen(navController = navController, viewModel = registerViewModel)
         }
         composable(
             route = "home",
@@ -87,8 +80,6 @@ fun NavGraph(navController: NavHostController) {
                 cartViewModel = cartViewModel
             )
         }
-
-
         composable(
             route = "checkout?product={product}&quantity={quantity}&cartItems={cartItems}",
             arguments = listOf(
@@ -141,7 +132,7 @@ fun NavGraph(navController: NavHostController) {
                     )
                     (0 until jsonArray.length()).map { index ->
                         val jsonObject = jsonArray.getJSONObject(index)
-                        val productJson = jsonObject.getJSONObject("product") // Truy cập product
+                        val productJson = jsonObject.getJSONObject("product")
                         CartItem(
                             userId = jsonObject.optString("userId", ""),
                             productId = jsonObject.optInt("productId", 0),
@@ -152,7 +143,7 @@ fun NavGraph(navController: NavHostController) {
                                 giam_gia = productJson.getInt("giam_gia"),
                                 anh_sp = productJson.getJSONArray("anh_sp").let { jsonArray ->
                                     (0 until jsonArray.length()).map { jsonArray.getString(it) }
-                                }, // Truy cập anh_sp từ productJson
+                                },
                                 mo_ta = productJson.getString("mo_ta"),
                                 soluong = productJson.getInt("soluong"),
                                 so_luong_ban = productJson.getInt("so_luong_ban"),

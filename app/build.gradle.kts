@@ -69,7 +69,7 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore-ktx:24.10.0")
     implementation("com.google.firebase:firebase-auth-ktx:22.3.1")
     implementation("com.google.firebase:firebase-storage-ktx:20.3.0")
-    implementation("io.coil-kt:coil-compose:2.4.0")
+    implementation("io.coil-kt:coil-compose:2.6.0")
     implementation("com.google.android.gms:play-services-auth:20.7.0")
     implementation("com.sun.mail:android-mail:1.6.7")
     implementation("com.sun.mail:android-activation:1.6.7")
@@ -86,4 +86,5 @@ dependencies {
     implementation ("com.squareup.okhttp3:okhttp:4.12.0")
     implementation ("com.google.accompanist:accompanist-pager:0.34.0")
     implementation ("com.google.accompanist:accompanist-pager-indicators:0.34.0")
+    implementation ("androidx.activity:activity-compose:1.9.0")
 }

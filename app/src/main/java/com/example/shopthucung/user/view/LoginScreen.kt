@@ -3,6 +3,7 @@ package com.example.shopthucung.user.view
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
@@ -12,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -53,16 +55,41 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel) {
         }
     }
 
-    // Hiển thị thông báo lỗi nếu có
+    // Hiển thị thông báo lỗi hoặc thành công
     LaunchedEffect(message) {
-        message?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.clearMessage()
+        message?.let { msg ->
+            val result = snackbarHostState.showSnackbar(
+                message = msg,
+                actionLabel = "Đóng",
+                duration = SnackbarDuration.Long,
+                withDismissAction = true
+            )
+            when (result) {
+                SnackbarResult.ActionPerformed -> {
+                    viewModel.clearMessage()
+                }
+                SnackbarResult.Dismissed -> {
+                    viewModel.clearMessage()
+                }
+            }
         }
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = {
+            SnackbarHost(hostState = snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    modifier = Modifier
+                        .padding(8.dp)
+                        .shadow(4.dp, RoundedCornerShape(8.dp)),
+                    containerColor = Color(0xFFF44336),
+                    contentColor = Color.White,
+                    actionContentColor = Color(0xFFFFEB3B),
+                    shape = RoundedCornerShape(8.dp)
+                )
+            }
+        },
         containerColor = Color.Transparent
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize()) {
@@ -87,7 +114,12 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel) {
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text("Đăng nhập", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color(0xFF4A90E2))
+                Text(
+                    "Đăng nhập",
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF4A90E2)
+                )
                 Spacer(modifier = Modifier.height(24.dp))
 
                 OutlinedTextField(
@@ -121,29 +153,45 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel) {
 
                 Button(
                     onClick = {
-                        if (email.isNotBlank() && password.isNotBlank()) {
-                            isLoading = true
-                            viewModel.loginUser(email, password) { success, result ->
-                                isLoading = false
-                                if (success) {
-                                    println("LoginScreen: Login successful, navigating to home")
-                                    navController.navigate("home") {
-                                        popUpTo(navController.graph.startDestinationId) { inclusive = true }
-                                    }
-                                } else {
-                                    coroutineScope.launch {
-                                        snackbarHostState.showSnackbar(result ?: "Đăng nhập thất bại!")
+                        if (email.isBlank() || password.isBlank()) {
+                            coroutineScope.launch {
+                                viewModel.setMessage("Vui lòng nhập đầy đủ thông tin!")
+                            }
+                            return@Button
+                        }
+                        if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                            coroutineScope.launch {
+                                viewModel.setMessage("Email không hợp lệ!")
+                            }
+                            return@Button
+                        }
+                        isLoading = true
+                        viewModel.loginUser(email, password) { success, _ ->
+                            isLoading = false
+                            if (success) {
+                                println("LoginScreen: Login successful, navigating to home")
+                                navController.navigate("home") {
+                                    popUpTo(navController.graph.startDestinationId) {
+                                        inclusive = true
                                     }
                                 }
                             }
-                        } else {
-                            coroutineScope.launch { snackbarHostState.showSnackbar("Vui lòng nhập đầy đủ thông tin!") }
+                            // Note: Error messages are now handled via the LoginViewModel's message flow
                         }
                     },
-                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
                     enabled = !isLoading
                 ) {
-                    Text(if (isLoading) "Đang đăng nhập..." else "Đăng nhập", fontSize = 16.sp)
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    } else {
+                        Text("Đăng nhập", fontSize = 16.sp)
+                    }
                 }
 
                 TextButton(onClick = { if (!isLoading) navController.navigate("register") }) {
