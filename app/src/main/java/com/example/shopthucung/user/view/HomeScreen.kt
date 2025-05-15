@@ -192,7 +192,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
             BottomAppBar(
                 containerColor = Color(0xFFFAFAFA),
                 contentColor = Color(0xFFA5D6A7),
-                modifier = Modifier.shadow(8.dp) // Thêm bóng cho bottom bar
+                modifier = Modifier.shadow(8.dp)
             ) {
                 Row(
                     modifier = Modifier
@@ -206,7 +206,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                             imageVector = Icons.Default.Home,
                             contentDescription = "Trang chủ",
                             tint = Color(0xFFA5D6A7),
-                            modifier = Modifier.size(28.dp) // Tăng kích thước icon
+                            modifier = Modifier.size(28.dp)
                         )
                     }
                     BadgedBox(
@@ -269,7 +269,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp) // Giảm khoảng cách cho kết quả tìm kiếm
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         item {
                             Row(
@@ -280,7 +280,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                             ) {
                                 Text(
                                     text = "Kết quả tìm kiếm",
-                                    fontSize = 24.sp, // Tăng kích thước chữ
+                                    fontSize = 24.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF424242)
                                 )
@@ -341,17 +341,17 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                                 horizontalArrangement = Arrangement.SpaceEvenly
                             ) {
                                 Button(
-                                    onClick = { navController.navigate("category/pets") },
+                                    onClick = { navController.navigate("pet") },
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(50.dp)
                                         .padding(end = 8.dp)
-                                        .shadow(6.dp, RoundedCornerShape(16.dp)), // Tăng shadow
+                                        .shadow(6.dp, RoundedCornerShape(16.dp)),
                                     colors = ButtonDefaults.buttonColors(
                                         containerColor = Color(0xFFA5D6A7),
                                         contentColor = Color.White
                                     ),
-                                    shape = RoundedCornerShape(16.dp) // Bo góc lớn hơn
+                                    shape = RoundedCornerShape(16.dp)
                                 ) {
                                     Text(
                                         text = "Thú cưng",
@@ -360,7 +360,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                                     )
                                 }
                                 Button(
-                                    onClick = { navController.navigate("category/accessories") },
+                                    onClick = { navController.navigate("supplies") },
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(50.dp)

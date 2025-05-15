@@ -11,12 +11,28 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
-import com.example.shopthucung.user.view.*
-import com.example.shopthucung.user.viewmodel.*
-import com.google.firebase.auth.FirebaseAuth
+import com.example.shopthucung.user.view.CartScreen
+import com.example.shopthucung.user.view.CheckoutScreen
+import com.example.shopthucung.user.view.HomeScreen
+import com.example.shopthucung.user.view.LoginScreen
+import com.example.shopthucung.user.view.OrderDetailScreen
+import com.example.shopthucung.user.view.ProductDetailScreen
+import com.example.shopthucung.user.view.RatingScreen
+import com.example.shopthucung.user.view.RegisterScreen
+import com.example.shopthucung.user.view.UserScreen
+import com.example.shopthucung.user.view.VerificationScreen
+import com.example.shopthucung.user.viewmodel.CartViewModel
+import com.example.shopthucung.user.viewmodel.HomeViewModel
+import com.example.shopthucung.user.viewmodel.LoginViewModel
+import com.example.shopthucung.user.viewmodel.OrderViewModel
+import com.example.shopthucung.user.viewmodel.ProductDetailViewModel
+import com.example.shopthucung.user.viewmodel.RegisterViewModel
+import com.example.shopthucung.user.viewmodel.RegisterViewModelFactory
 import com.google.firebase.firestore.FirebaseFirestore
 import com.example.shopthucung.model.Product
 import com.example.shopthucung.model.CartItem
+import com.example.shopthucung.user.view.PetScreen
+import com.example.shopthucung.user.view.SuppliesScreen
 import org.json.JSONObject
 import org.json.JSONArray
 import java.net.URLDecoder
@@ -25,9 +41,9 @@ import java.nio.charset.StandardCharsets
 @Composable
 fun NavGraph(navController: NavHostController) {
     val firestore = FirebaseFirestore.getInstance()
-    val auth = FirebaseAuth.getInstance()
     val loginViewModel = LoginViewModel(firestore)
 
+    // Sử dụng LocalActivity để lấy Activity
     val activity = LocalActivity.current
     val registerViewModel: RegisterViewModel = viewModel(
         factory = RegisterViewModelFactory(firestore, activity)
@@ -40,11 +56,9 @@ fun NavGraph(navController: NavHostController) {
 
     NavHost(
         navController = navController,
-        startDestination = if (auth.currentUser != null) "home" else "login"
+        startDestination = "login"
     ) {
         composable("login") {
-            auth.signOut()
-            loginViewModel.clearMessage()
             LoginScreen(navController = navController, viewModel = loginViewModel)
         }
         composable("register") {
@@ -61,6 +75,8 @@ fun NavGraph(navController: NavHostController) {
         ) {
             HomeScreen(navController = navController, viewModel = homeViewModel)
         }
+        composable("pet") { PetScreen(navController) }
+        composable("supplies") { SuppliesScreen(navController) }
         composable("user/{uid}") { backStackEntry ->
             val uid = backStackEntry.arguments?.getString("uid") ?: ""
             UserScreen(navController = navController, uid = uid)
@@ -185,3 +201,4 @@ fun NavGraph(navController: NavHostController) {
         }
     }
 }
+
