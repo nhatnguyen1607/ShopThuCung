@@ -128,7 +128,8 @@ fun NavGraph(navController: NavHostController) {
                         soluong = jsonObject.getInt("soluong"),
                         so_luong_ban = jsonObject.getInt("so_luong_ban"),
                         danh_gia = jsonObject.getDouble("danh_gia").toFloat(),
-                        firestoreId = jsonObject.optString("firestoreId", "")
+                        firestoreId = jsonObject.optString("firestoreId", ""),
+                        id_category = jsonObject.optInt("id_category", 0) // Thêm ánh xạ
                     )
                 } else {
                     null
@@ -164,7 +165,8 @@ fun NavGraph(navController: NavHostController) {
                                 soluong = productJson.getInt("soluong"),
                                 so_luong_ban = productJson.getInt("so_luong_ban"),
                                 danh_gia = productJson.getDouble("danh_gia").toFloat(),
-                                firestoreId = productJson.optString("firestoreId", "")
+                                firestoreId = productJson.optString("firestoreId", ""),
+                                id_category = productJson.optInt("id_category", 0) // Thêm ánh xạ
                             ),
                             quantity = jsonObject.getInt("quantity"),
                             cartIndex = jsonObject.getInt("cartIndex")

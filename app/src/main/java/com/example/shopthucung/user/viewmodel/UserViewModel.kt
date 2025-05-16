@@ -1,10 +1,13 @@
 package com.example.shopthucung.user.viewmodel
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.shopthucung.model.Order
 import com.example.shopthucung.model.Product
 import com.example.shopthucung.model.User
+import com.example.shopthucung.utils.CloudinaryUtils
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +35,38 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
     init {
         fetchUser()
         fetchOrders()
+    }
+
+    fun uploadAvatarToCloudinary(imageUri: Uri, context: Context, onSuccess: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                _message.value = "Đang tải ảnh lên..."
+                val url = CloudinaryUtils.uploadToCloudinary(imageUri, context)
+                if (url != null) {
+                    updateAvatarUrl(url)
+                    onSuccess(url)
+                } else {
+                    _message.value = "Lỗi: Không nhận được URL ảnh"
+                }
+            } catch (e: Exception) {
+                _message.value = "Lỗi khi tải ảnh: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    private fun updateAvatarUrl(avatarUrl: String) {
+        viewModelScope.launch {
+            try {
+                db.collection("user").document(uid).update("avatar", avatarUrl).await()
+                _user.value = _user.value?.copy(avatar = avatarUrl)
+                _message.value = "Cập nhật ảnh đại diện thành công"
+            } catch (e: Exception) {
+                _message.value = "Lỗi khi cập nhật ảnh đại diện: ${e.message}"
+            }
+        }
     }
 
     fun fetchUser() {
@@ -71,19 +106,23 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
 
                 val orderList = documents.mapNotNull { doc ->
                     try {
-                        // Tự ánh xạ dữ liệu để xử lý trường anh_sp
                         val orderData = doc.data
-                        val productData = orderData["product"] as? Map<String, Any> ?: return@mapNotNull null
-                        val anhSpRaw = productData["anh_sp"]
+                        val productData = orderData["product"] as? Map<String, Any>
+                        if (productData == null) {
+                            println("UserViewModel: Missing product data in order ${doc.id}")
+                            return@mapNotNull null
+                        }
 
-                        // Xử lý trường anh_sp linh hoạt
+                        val anhSpRaw = productData["anh_sp"]
                         val anhSp: List<String> = when (anhSpRaw) {
                             is List<*> -> anhSpRaw.filterIsInstance<String>()
                             is String -> listOf(anhSpRaw)
-                            else -> emptyList()
+                            else -> {
+                                println("UserViewModel: Invalid anh_sp format in order ${doc.id}: $anhSpRaw")
+                                emptyList()
+                            }
                         }
 
-                        // Tạo đối tượng Product
                         val product = Product(
                             id_sanpham = (productData["id_sanpham"] as? Number)?.toInt() ?: 0,
                             ten_sp = productData["ten_sp"] as? String ?: "",
@@ -94,10 +133,14 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
                             soluong = (productData["soluong"] as? Number)?.toInt() ?: 0,
                             so_luong_ban = (productData["so_luong_ban"] as? Number)?.toInt() ?: 0,
                             danh_gia = (productData["danh_gia"] as? Number)?.toFloat() ?: 0f,
-                            firestoreId = productData["firestoreId"] as? String ?: ""
+                            firestoreId = productData["firestoreId"] as? String ?: "",
+                            id_category = (productData["id_category"] as? Number)?.toInt() ?: 0
                         )
 
-                        // Tạo đối tượng Order
+                        if (product.firestoreId.isEmpty()) {
+                            println("UserViewModel: Empty firestoreId in product for order ${doc.id}")
+                        }
+
                         Order(
                             orderId = doc.id,
                             userId = orderData["userId"] as? String ?: "",
@@ -143,6 +186,7 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
                         "diaChi" to updatedUser.diaChi,
                         "sdt" to updatedUser.sdt,
                         "hoVaTen" to updatedUser.hoVaTen,
+                        "avatar" to updatedUser.avatar
                     )
                 ).await()
                 _user.value = updatedUser
@@ -191,7 +235,8 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
                 }
 
                 val email = currentUser.email ?: ""
-                val credential = com.google.firebase.auth.EmailAuthProvider.getCredential(email, password)
+                val credential =
+                    com.google.firebase.auth.EmailAuthProvider.getCredential(email, password)
                 currentUser.reauthenticate(credential).await()
                 currentUser.delete().await()
                 db.collection("user").document(uid).delete().await()
@@ -209,7 +254,6 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
         viewModelScope.launch {
             try {
                 _isLoading.value = true
-                // Lấy thông tin đơn hàng từ Firestore
                 val orderSnapshot = db.collection("orders")
                     .document(orderId)
                     .get()
@@ -218,35 +262,51 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
                 val order = orderSnapshot.toObject(Order::class.java)
                     ?: throw Exception("Không tìm thấy đơn hàng với ID: $orderId")
 
-                // Kiểm tra trạng thái hiện tại để tránh cập nhật trùng lặp
                 if (newStatus == "Đã hủy" && order.status == "Đã hủy") {
                     _message.value = "Đơn hàng đã được hủy trước đó"
                     return@launch
                 }
 
-                // Kiểm tra trạng thái hợp lệ để hủy
                 if (newStatus == "Đã hủy" && order.status !in listOf("Đang xử lí", "Đã xác nhận")) {
                     throw Exception("Không thể hủy đơn hàng ở trạng thái ${order.status}")
                 }
 
-                // Cập nhật trạng thái đơn hàng
                 db.collection("orders")
                     .document(orderId)
                     .update("status", newStatus)
                     .await()
 
-                // Nếu trạng thái là "Đã hủy", trả lại số lượng và giảm số lượng đã bán
                 if (newStatus == "Đã hủy") {
-                    val product = order.product ?: throw Exception("Không tìm thấy sản phẩm trong đơn hàng")
-                    // Sử dụng giao dịch để đảm bảo cập nhật nguyên tử
+                    val product =
+                        order.product ?: throw Exception("Không tìm thấy sản phẩm trong đơn hàng")
+                    val firestoreId = if (product.firestoreId.isEmpty()) {
+                        // Tìm sản phẩm dựa trên id_sanpham nếu firestoreId rỗng
+                        val productSnapshot = db.collection("product")
+                            .whereEqualTo("id_sanpham", product.id_sanpham)
+                            .limit(1)
+                            .get()
+                            .await()
+                        if (productSnapshot.isEmpty) {
+                            throw Exception("Không tìm thấy sản phẩm với id_sanpham: ${product.id_sanpham}")
+                        }
+                        productSnapshot.documents[0].id
+                    } else {
+                        product.firestoreId
+                    }
+
                     db.runTransaction { transaction ->
-                        val productRef = db.collection("product").document(product.ten_sp.toString())
+                        val productRef = db.collection("product").document(firestoreId)
                         val productSnapshot = transaction.get(productRef)
+                        if (!productSnapshot.exists()) {
+                            throw Exception("Không tìm thấy sản phẩm với firestoreId: $firestoreId")
+                        }
                         val currentStock = productSnapshot.getLong("soluong")?.toInt() ?: 0
                         val currentSold = productSnapshot.getLong("so_luong_ban")?.toInt() ?: 0
-                        transaction.update(productRef, mapOf(
-                            "so_luong_ban" to max(0, currentSold - order.quantity)
-                        ))
+                        transaction.update(
+                            productRef, mapOf(
+                                "so_luong_ban" to max(0, currentSold - order.quantity)
+                            )
+                        )
                     }.await()
                 }
 
@@ -254,6 +314,7 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
                 refreshOrders()
             } catch (e: Exception) {
                 _message.value = "Lỗi khi cập nhật trạng thái đơn hàng: ${e.message}"
+                println("UserViewModel: Error updating order status: ${e.message}")
             } finally {
                 _isLoading.value = false
             }

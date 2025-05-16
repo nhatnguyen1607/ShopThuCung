@@ -393,7 +393,8 @@ fun Product.toJson(): String {
         "mo_ta": "${mo_ta.replace("\"", "\\\"")}",
         "soluong": ${soluong},
         "so_luong_ban": ${so_luong_ban},
-        "danh_gia": ${danh_gia}
+        "danh_gia": ${danh_gia},
+        "id_category": ${id_category}
     }""".trimIndent()
 }
 
@@ -402,8 +403,8 @@ fun RatingSection(
     averageRating: Float,
     reviews: List<Review>,
     users: Map<String, User>,
-    selectedFilter: Int?, // Thêm tham số để theo dõi bộ lọc
-    onFilterSelected: (Int?) -> Unit // Thêm callback để xử lý lựa chọn bộ lọc
+    selectedFilter: Int?,
+    onFilterSelected: (Int?) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -549,11 +550,14 @@ fun RatingSection(
                         .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.Top
                 ) {
-                    Box(
+                    AsyncImage(
+                        model = user?.avatar ?: R.drawable.placeholder_image,
+                        contentDescription = "Ảnh đại diện của ${user?.hoVaTen ?: "Người dùng"}",
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFFE0E0E0))
+                            .background(Color(0xFFE0E0E0)),
+                        error = painterResource(R.drawable.placeholder_image)
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
@@ -637,3 +641,4 @@ fun formatTimestamp(timestamp: Timestamp?): String {
 fun Int.formatWithComma(): String {
     return String.format("%,d", this).replace(",", ".")
 }
+

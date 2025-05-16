@@ -116,7 +116,7 @@ class OrderViewModel : ViewModel() {
                     product.so_luong_ban += order.quantity
                     db.collection("product")
                         .document(product.ten_sp.toString())
-                        .set(product)
+                        .update("so_luong_ban", product.so_luong_ban)
                         .await()
 
                     _pendingOrders.value = emptyList()
@@ -230,7 +230,7 @@ class OrderViewModel : ViewModel() {
                         product.so_luong_ban += order.quantity
                         db.collection("product")
                             .document(product.ten_sp.toString())
-                            .set(product)
+                            .update("so_luong_ban", product.so_luong_ban)
                             .await()
 
                         // Xóa mục trong giỏ hàng
@@ -288,7 +288,7 @@ class OrderViewModel : ViewModel() {
 
                 db.collection("product")
                     .document(product.ten_sp.toString())
-                    .set(product)
+                    .update("so_luong_ban", product.so_luong_ban)
                     .await()
 
                 // Xóa mục giỏ hàng nếu có

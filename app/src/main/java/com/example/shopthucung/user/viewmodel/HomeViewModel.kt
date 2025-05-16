@@ -10,12 +10,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 class HomeViewModel(private val db: FirebaseFirestore = FirebaseFirestore.getInstance()) : ViewModel() {
-    // State for product lists
     val trendingProducts = mutableStateOf<List<Product>>(emptyList())
     val newProducts = mutableStateOf<List<Product>>(emptyList())
     val topRatedProducts = mutableStateOf<List<Product>>(emptyList())
 
-    // State for loading and error handling
     val isLoading = mutableStateOf(false)
     val errorMessage = mutableStateOf<String?>(null)
 
@@ -27,7 +25,6 @@ class HomeViewModel(private val db: FirebaseFirestore = FirebaseFirestore.getIns
         isLoading.value = true
         errorMessage.value = null
 
-        // Fetch trending products (based on sales)
         viewModelScope.launch {
             try {
                 val trendingResult = db.collection("product")

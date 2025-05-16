@@ -1,11 +1,14 @@
 package com.example.shopthucung.user.view
 
-import android.R.id.message
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -13,7 +16,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -21,12 +27,15 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
+import com.example.shopthucung.R
 import com.example.shopthucung.model.Order
 import com.example.shopthucung.model.User
 import com.example.shopthucung.user.viewmodel.UserViewModel
+import com.example.shopthucung.utils.CloudinaryUtils
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.gson.Gson
+import kotlinx.coroutines.launch
 import java.net.URLEncoder
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,6 +51,7 @@ fun UserScreen(navController: NavController, uid: String) {
     val tabs = listOf("Thông tin cá nhân", "Đơn hàng của tôi", "Cài đặt tài khoản")
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         viewModel.refreshUser()
@@ -50,7 +60,9 @@ fun UserScreen(navController: NavController, uid: String) {
 
     LaunchedEffect(message) {
         message?.let {
-            snackbarHostState.showSnackbar(it)
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(it)
+            }
             if (it.contains("Không tìm thấy thông tin người dùng")) {
                 FirebaseAuth.getInstance().signOut()
                 navController.navigate("login") {
@@ -155,10 +167,109 @@ fun UserScreen(navController: NavController, uid: String) {
                             navController.navigate("login") {
                                 popUpTo("user/$uid") { inclusive = true }
                             }
-                        }
+                        },
+                        viewModel = viewModel
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+fun PersonalInfoTab(user: User?) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Text(
+                text = "Thông tin cá nhân",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF424242)
+            )
+        }
+
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AsyncImage(
+                    model = user?.avatar ?: "",
+                    contentDescription = "Ảnh đại diện",
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE0E0E0)),
+                    error = painterResource(id = R.drawable.placeholder_image)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                OutlinedTextField(
+                    value = user?.hoVaTen ?: "",
+                    onValueChange = { /* Không cho phép chỉnh sửa */ },
+                    label = { Text("Họ tên") },
+                    modifier = Modifier.weight(1f),
+                    enabled = false,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFA5D6A7),
+                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                        disabledBorderColor = Color(0xFFE0E0E0),
+                        disabledTextColor = Color(0xFF757575)
+                    )
+                )
+            }
+        }
+
+        item {
+            OutlinedTextField(
+                value = user?.email ?: "",
+                onValueChange = { /* Không cho phép chỉnh sửa */ },
+                label = { Text("Email") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = false,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFFA5D6A7),
+                    unfocusedBorderColor = Color(0xFFE0E0E0),
+                    disabledBorderColor = Color(0xFFE0E0E0),
+                    disabledTextColor = Color(0xFF757575)
+                )
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = user?.sdt ?: "",
+                onValueChange = { /* Không cho phép chỉnh sửa */ },
+                label = { Text("Số điện thoại") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = false,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFFA5D6A7),
+                    unfocusedBorderColor = Color(0xFFE0E0E0),
+                    disabledBorderColor = Color(0xFFE0E0E0),
+                    disabledTextColor = Color(0xFF757575)
+                )
+            )
+        }
+
+        item {
+            OutlinedTextField(
+                value = user?.diaChi ?: "",
+                onValueChange = { /* Không cho phép chỉnh sửa */ },
+                label = { Text("Địa chỉ giao hàng") },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = false,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFFA5D6A7),
+                    unfocusedBorderColor = Color(0xFFE0E0E0),
+                    disabledBorderColor = Color(0xFFE0E0E0),
+                    disabledTextColor = Color(0xFF757575)
+                )
+            )
         }
     }
 }
@@ -341,57 +452,62 @@ fun OrderItem(
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFF424242)
                         )
+                        Spacer(modifier = Modifier.width(4.dp))
                         when (order.status) {
                             "Đang xử lí", "Đã xác nhận" -> {
                                 Text(
                                     text = order.status,
                                     fontSize = 14.sp,
-                                    color = Color(0xFFFFFFFF),
+                                    color = Color.White,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier
                                         .background(
                                             color = Color(0xFF2196F3),
                                             shape = RoundedCornerShape(8.dp)
                                         )
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
                             }
                             "Đang giao hàng" -> {
                                 Text(
                                     text = order.status,
                                     fontSize = 14.sp,
-                                    color = Color(0xFFFFFFFF),
+                                    color = Color.White,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier
                                         .background(
                                             color = Color(0xFF00FFCC),
                                             shape = RoundedCornerShape(8.dp)
                                         )
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
                             }
                             "Giao thành công" -> {
                                 Text(
                                     text = order.status,
                                     fontSize = 14.sp,
-                                    color = Color(0xFFFFFFFF),
+                                    color = Color.White,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier
                                         .background(
                                             color = Color(0xFF00FF00),
                                             shape = RoundedCornerShape(8.dp)
                                         )
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
                             }
                             "Đã hủy" -> {
                                 Text(
                                     text = order.status,
                                     fontSize = 14.sp,
-                                    color = Color(0xFFFFFFFF),
+                                    color = Color.White,
                                     fontWeight = FontWeight.Bold,
                                     modifier = Modifier
                                         .background(
                                             color = Color(0xFFEE0000),
                                             shape = RoundedCornerShape(8.dp)
                                         )
+                                        .padding(horizontal = 8.dp, vertical = 4.dp)
                                 )
                             }
                             else -> {
@@ -407,7 +523,7 @@ fun OrderItem(
                 }
 
                 AsyncImage(
-                    model = order.product?.anh_sp?.firstOrNull() ?: "", // Lấy ảnh đầu tiên từ danh sách
+                    model = order.product?.anh_sp?.firstOrNull() ?: "",
                     contentDescription = "Ảnh sản phẩm",
                     modifier = Modifier
                         .size(80.dp)
@@ -515,102 +631,15 @@ fun OrderItem(
     }
 }
 
-@Composable
-fun PersonalInfoTab(user: User?) {
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item {
-            Text(
-                text = "Thông tin cá nhân",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF424242)
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = user?.hoVaTen ?: "",
-                onValueChange = { /* Không cho phép chỉnh sửa */ },
-                label = { Text("Họ tên") },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = false,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFA5D6A7),
-                    unfocusedBorderColor = Color(0xFFE0E0E0),
-                    disabledBorderColor = Color(0xFFE0E0E0),
-                    disabledTextColor = Color(0xFF757575)
-                )
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = user?.email ?: "",
-                onValueChange = { /* Không cho phép chỉnh sửa */ },
-                label = { Text("Email") },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = false,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFA5D6A7),
-                    unfocusedBorderColor = Color(0xFFE0E0E0),
-                    disabledBorderColor = Color(0xFFE0E0E0),
-                    disabledTextColor = Color(0xFF757575)
-                )
-            )
-        }
-
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedTextField(
-                    value = user?.sdt ?: "",
-                    onValueChange = { /* Không cho phép chỉnh sửa */ },
-                    label = { Text("Số điện thoại") },
-                    modifier = Modifier.weight(1f),
-                    enabled = false,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFFA5D6A7),
-                        unfocusedBorderColor = Color(0xFFE0E0E0),
-                        disabledBorderColor = Color(0xFFE0E0E0),
-                        disabledTextColor = Color(0xFF757575)
-                    )
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-        }
-
-        item {
-            OutlinedTextField(
-                value = user?.diaChi ?: "",
-                onValueChange = { /* Không cho phép chỉnh sửa */ },
-                label = { Text("Địa chỉ giao hàng") },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = false,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFA5D6A7),
-                    unfocusedBorderColor = Color(0xFFE0E0E0),
-                    disabledBorderColor = Color(0xFFE0E0E0),
-                    disabledTextColor = Color(0xFF757575)
-                )
-            )
-        }
-    }
-}
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AccountSettingsTab(
     user: User?,
     onUpdateUser: (User) -> Unit,
     onChangePassword: (String) -> Unit,
     onDeleteAccount: (String) -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    viewModel: UserViewModel
 ) {
     var hoTen by remember(user) { mutableStateOf(user?.hoVaTen ?: "") }
     var soDienThoai by remember(user) { mutableStateOf(user?.sdt ?: "") }
@@ -621,228 +650,314 @@ fun AccountSettingsTab(
     var deletePassword by remember { mutableStateOf("") }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+    var avatarUri by remember { mutableStateOf<Uri?>(null) }
+    var avatarUrl by remember(user) { mutableStateOf(user?.avatar ?: "") }
+
+    val context = LocalContext.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+
+    // Launcher để chọn ảnh
+    val pickImageLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            avatarUri = it
+            viewModel.uploadAvatarToCloudinary(it, context) { url ->
+                avatarUrl = url
+                coroutineScope.launch {
+                    snackbarHostState.showSnackbar("Tải ảnh đại diện thành công")
+                }
+            }
+        }
+    }
 
     LaunchedEffect(user) {
         user?.let {
             hoTen = it.hoVaTen
             soDienThoai = it.sdt
             diaChi = it.diaChi
+            avatarUrl = it.avatar
         }
     }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    LaunchedEffect(viewModel.message.collectAsState().value) {
+        viewModel.message.value?.let {
+            coroutineScope.launch {
+                snackbarHostState.showSnackbar(it)
+            }
+            isLoading = false
+            viewModel.clearMessage()
+        }
+    }
+
+    Column(
+        modifier = Modifier.fillMaxSize()
     ) {
-        item {
-            Text(
-                text = "Thay đổi thông tin cá nhân",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF424242)
-            )
-        }
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        )
 
-        item {
-            OutlinedTextField(
-                value = hoTen,
-                onValueChange = { hoTen = it },
-                label = { Text("Họ tên") },
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFA5D6A7),
-                    unfocusedBorderColor = Color(0xFFE0E0E0)
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Text(
+                    text = "Ảnh đại diện",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF424242)
                 )
-            )
-        }
+            }
 
-        item {
-            OutlinedTextField(
-                value = soDienThoai,
-                onValueChange = { soDienThoai = it },
-                label = { Text("Số điện thoại") },
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFA5D6A7),
-                    unfocusedBorderColor = Color(0xFFE0E0E0)
-                )
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = diaChi,
-                onValueChange = { diaChi = it },
-                label = { Text("Địa chỉ giao hàng") },
-                modifier = Modifier.fillMaxWidth(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFA5D6A7),
-                    unfocusedBorderColor = Color(0xFFE0E0E0)
-                )
-            )
-        }
-
-        item {
-            Button(
-                onClick = {
-                    user?.let {
-                        isLoading = true
-                        val updatedUser = it.copy(
-                            hoVaTen = hoTen,
-                            sdt = soDienThoai,
-                            diaChi = diaChi
-                        )
-                        onUpdateUser(updatedUser)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isLoading && user != null,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFA5D6A7),
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        modifier = Modifier.size(24.dp)
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AsyncImage(
+                        model = avatarUri?.toString() ?: avatarUrl,
+                        contentDescription = "Ảnh đại diện",
+                        modifier = Modifier
+                            .size(80.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE0E0E0))
+                            .clickable { pickImageLauncher.launch("image/*") },
+                        error = painterResource(id = R.drawable.placeholder_image)
                     )
-                } else {
-                    Text("Lưu thay đổi", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Button(
+                        onClick = { pickImageLauncher.launch("image/*") },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFA5D6A7),
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Chọn ảnh", fontSize = 14.sp)
+                    }
                 }
             }
-        }
 
-        item {
-            Text(
-                text = "Đổi mật khẩu",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF424242)
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = currentPassword,
-                onValueChange = { currentPassword = it },
-                label = { Text("Mật khẩu hiện tại") },
-                modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFA5D6A7),
-                    unfocusedBorderColor = Color(0xFFE0E0E0)
+            item {
+                Text(
+                    text = "Thay đổi thông tin cá nhân",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF424242)
                 )
-            )
-        }
+            }
 
-        item {
-            OutlinedTextField(
-                value = newPassword,
-                onValueChange = { newPassword = it },
-                label = { Text("Mật khẩu mới") },
-                modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFA5D6A7),
-                    unfocusedBorderColor = Color(0xFFE0E0E0)
+            item {
+                OutlinedTextField(
+                    value = hoTen,
+                    onValueChange = { hoTen = it },
+                    label = { Text("Họ tên") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFA5D6A7),
+                        unfocusedBorderColor = Color(0xFFE0E0E0)
+                    )
                 )
-            )
-        }
+            }
 
-        item {
-            OutlinedTextField(
-                value = confirmPassword,
-                onValueChange = { confirmPassword = it },
-                label = { Text("Xác nhận mật khẩu mới") },
-                modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFA5D6A7),
-                    unfocusedBorderColor = Color(0xFFE0E0E0)
+            item {
+                OutlinedTextField(
+                    value = soDienThoai,
+                    onValueChange = { soDienThoai = it },
+                    label = { Text("Số điện thoại") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFA5D6A7),
+                        unfocusedBorderColor = Color(0xFFE0E0E0)
+                    )
                 )
-            )
-        }
+            }
 
-        item {
-            Button(
-                onClick = {
-                    if (newPassword == confirmPassword && newPassword.isNotEmpty()) {
-                        onChangePassword(newPassword)
+            item {
+                OutlinedTextField(
+                    value = diaChi,
+                    onValueChange = { diaChi = it },
+                    label = { Text("Địa chỉ giao hàng") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFA5D6A7),
+                        unfocusedBorderColor = Color(0xFFE0E0E0)
+                    )
+                )
+            }
+
+            item {
+                Button(
+                    onClick = {
+                        user?.let {
+                            isLoading = true
+                            val updatedUser = it.copy(
+                                hoVaTen = hoTen,
+                                sdt = soDienThoai,
+                                diaChi = diaChi,
+                                avatar = avatarUrl
+                            )
+                            onUpdateUser(updatedUser)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading && user != null,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFA5D6A7),
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    } else {
+                        Text("Lưu thay đổi", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFA5D6A7),
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Đổi mật khẩu", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
-        }
 
-        item {
-            Text(
-                text = "Xóa tài khoản",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF424242)
-            )
-        }
-
-        item {
-            OutlinedTextField(
-                value = deletePassword,
-                onValueChange = { deletePassword = it },
-                label = { Text("Nhập mật khẩu để xóa tài khoản") },
-                modifier = Modifier.fillMaxWidth(),
-                visualTransformation = PasswordVisualTransformation(),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFA5D6A7),
-                    unfocusedBorderColor = Color(0xFFE0E0E0)
+            item {
+                Text(
+                    text = "Đổi mật khẩu",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF424242)
                 )
-            )
-        }
-
-        item {
-            Button(
-                onClick = { showDeleteDialog = true },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFF44336),
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(12.dp),
-                enabled = deletePassword.isNotEmpty()
-            ) {
-                Text("Xóa tài khoản", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             }
-        }
 
-        item {
-            Text(
-                text = "Đăng xuất",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF424242)
-            )
-        }
+            item {
+                OutlinedTextField(
+                    value = currentPassword,
+                    onValueChange = { currentPassword = it },
+                    label = { Text("Mật khẩu hiện tại") },
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = PasswordVisualTransformation(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFA5D6A7),
+                        unfocusedBorderColor = Color(0xFFE0E0E0)
+                    )
+                )
+            }
 
-        item {
-            Button(
-                onClick = { onLogout() },
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFFFA726),
-                    contentColor = Color.White
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Đăng xuất", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            item {
+                OutlinedTextField(
+                    value = newPassword,
+                    onValueChange = { newPassword = it },
+                    label = { Text("Mật khẩu mới") },
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = PasswordVisualTransformation(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFA5D6A7),
+                        unfocusedBorderColor = Color(0xFFE0E0E0)
+                    )
+                )
+            }
+
+            item {
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = { Text("Xác nhận mật khẩu mới") },
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = PasswordVisualTransformation(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFA5D6A7),
+                        unfocusedBorderColor = Color(0xFFE0E0E0)
+                    )
+                )
+            }
+
+            item {
+                Button(
+                    onClick = {
+                        if (newPassword == confirmPassword && newPassword.isNotEmpty()) {
+                            onChangePassword(newPassword)
+                        } else {
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Mật khẩu mới không khớp hoặc rỗng")
+                            }
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFA5D6A7),
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Đổi mật khẩu", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            item {
+                Text(
+                    text = "Xóa tài khoản",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF424242)
+                )
+            }
+
+            item {
+                OutlinedTextField(
+                    value = deletePassword,
+                    onValueChange = { deletePassword = it },
+                    label = { Text("Nhập mật khẩu để xóa tài khoản") },
+                    modifier = Modifier.fillMaxWidth(),
+                    visualTransformation = PasswordVisualTransformation(),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFA5D6A7),
+                        unfocusedBorderColor = Color(0xFFE0E0E0)
+                    )
+                )
+            }
+
+            item {
+                Button(
+                    onClick = { showDeleteDialog = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFF44336),
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = deletePassword.isNotEmpty()
+                ) {
+                    Text("Xóa tài khoản", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            item {
+                Text(
+                    text = "Đăng xuất",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF424242)
+                )
+            }
+
+            item {
+                Button(
+                    onClick = { onLogout() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFFA726),
+                        contentColor = Color.White
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("Đăng xuất", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
             }
         }
     }
@@ -876,11 +991,5 @@ fun AccountSettingsTab(
                 }
             }
         )
-    }
-
-    LaunchedEffect(message) {
-        if (message != null) {
-            isLoading = false
-        }
     }
 }
