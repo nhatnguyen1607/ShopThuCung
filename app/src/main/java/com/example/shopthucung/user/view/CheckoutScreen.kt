@@ -1,7 +1,6 @@
 package com.example.shopthucung.user.view
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.util.Log
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -17,14 +16,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import coil.compose.AsyncImage
 import com.example.shopthucung.R
 import com.example.shopthucung.model.CartItem
 import com.example.shopthucung.model.Order
@@ -33,15 +29,7 @@ import com.example.shopthucung.user.viewmodel.CartViewModel
 import com.example.shopthucung.user.viewmodel.OrderViewModel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.qrcode.QRCodeWriter
+import coil.compose.AsyncImage
 
 @SuppressLint("StateFlowValueCalledInComposition")
 @OptIn(ExperimentalMaterial3Api::class)
@@ -167,19 +155,22 @@ fun CheckoutScreen(
                     .fillMaxSize()
                     .padding(paddingValues)
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 if (vnpayUrls.value.isNotEmpty()) {
                     // Hiển thị mã QR
-                    vnpayUrls.value.forEach { (orderId, url) ->
+                    vnpayUrls.value.forEachIndexed { index, (orderId, _) ->
+                        val order = orders.value.getOrNull(index)
+                        val productName = order?.product?.ten_sp ?: "Sản phẩm không xác định"
                         Text(
-                            text = "Đơn hàng: $orderId",
-                            fontSize = 16.sp,
+                            text = "Sản phẩm: $productName",
+                            fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF424242)
+                            color = Color(0xFF424242),
+                            modifier = Modifier.padding(vertical = 12.dp)
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        QRCodeImage(url = url)
+                        QRCodeImage()
                         Spacer(modifier = Modifier.height(16.dp))
                         Button(
                             onClick = {
@@ -187,8 +178,8 @@ fun CheckoutScreen(
                                 orderViewModel.confirmVNPayPayment(orderId)
                             },
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .height(50.dp),
+                                .fillMaxWidth(0.8f)
+                                .height(48.dp),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF4CAF50),
                                 contentColor = Color.White
@@ -249,7 +240,7 @@ fun CheckoutScreen(
                                 )
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                            Text("VNPay", fontSize = 16.sp, color = Color(0xFF424242))
+                            Text("Thanh toán online", fontSize = 16.sp, color = Color(0xFF424242))
                         }
                     }
 
@@ -275,8 +266,8 @@ fun CheckoutScreen(
                             }
                         },
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .height(50.dp),
+                            .fillMaxWidth(0.8f)
+                            .height(48.dp),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFF4CAF50),
                             contentColor = Color.White
@@ -298,6 +289,7 @@ fun CheckoutScreen(
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
                 }
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -309,7 +301,10 @@ fun OrderItemCard(order: Order) {
         Log.d("OrderItemCard", "Product is null for order: ${order.orderId}")
         return
     }
-    Log.d("OrderItemCard", "Displaying product: ${product.ten_sp}")
+    val productName = product.ten_sp
+    val productImages = product.anh_sp
+
+    Log.d("OrderItemCard", "Displaying product: $productName")
 
     Card(
         modifier = Modifier
@@ -334,8 +329,8 @@ fun OrderItemCard(order: Order) {
                     .background(Color(0xFFE0E0E0))
             ) {
                 AsyncImage(
-                    model = product.anh_sp.firstOrNull() ?: R.drawable.placeholder_image, // Lấy ảnh đầu tiên từ danh sách
-                    contentDescription = product.ten_sp,
+                    model = productImages.firstOrNull() ?: R.drawable.placeholder_image,
+                    contentDescription = productName,
                     modifier = Modifier.fillMaxSize(),
                     error = painterResource(R.drawable.placeholder_image)
                 )
@@ -347,7 +342,7 @@ fun OrderItemCard(order: Order) {
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = product.ten_sp,
+                    text = productName,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF424242)
@@ -371,77 +366,15 @@ fun OrderItemCard(order: Order) {
 }
 
 @Composable
-fun QRCodeImage(url: String) {
-    if (url.isEmpty()) {
-        Log.e("QRCodeImage", "URL is empty")
-        Text(
-            text = "URL thanh toán không hợp lệ",
-            color = Color.Red,
-            fontSize = 14.sp,
-            modifier = Modifier.padding(8.dp)
-        )
-        return
-    }
-
-    val context = LocalContext.current
-    val qrCodeState = remember(url) {
-        try {
-            val width = 300
-            val height = 300
-            val writer = QRCodeWriter()
-            val bitMatrix = writer.encode(url, BarcodeFormat.QR_CODE, width, height)
-            val bmp = android.graphics.Bitmap.createBitmap(width, height, android.graphics.Bitmap.Config.ARGB_8888)
-            for (x in 0 until width) {
-                for (y in 0 until height) {
-                    bmp.setPixel(x, y, if (bitMatrix[x, y]) android.graphics.Color.BLACK else android.graphics.Color.WHITE)
-                }
-            }
-            Log.d("QRCodeImage", "ZXing Bitmap dimensions: ${bmp.width}x${bmp.height}")
-
-            // Lưu Bitmap để kiểm tra
-            saveBitmapToFile(context, bmp, "qr_code_zxing.png")
-
-            Result.success(bmp)
-        } catch (e: Exception) {
-            Log.e("QRCodeImage", "Error generating QR Code: ${e.message}")
-            Result.failure(e)
-        }
-    }
-
-    Log.d("QRCodeImage", "Recomposing QRCodeImage")
-    Log.d("QRCodeImage", "qrCodeState success: ${qrCodeState.isSuccess}, value: ${qrCodeState.getOrNull()}")
-    when {
-        qrCodeState.isSuccess -> {
-            Log.d("QRCodeImage", "Rendering QR Image")
-            Image(
-                bitmap = qrCodeState.getOrNull()!!.asImageBitmap(),
-                contentDescription = "QR Code thanh toán VNPay",
-                modifier = Modifier
-                    .size(300.dp)
-                    .background(Color.White)
-                    .padding(8.dp)
-            )
-        }
-        qrCodeState.isFailure -> {
-            Log.e("QRCodeImage", "QR Code failed: ${qrCodeState.exceptionOrNull()?.message}")
-            Text(
-                text = "Lỗi khi tạo mã QR: ${qrCodeState.exceptionOrNull()?.message}",
-                color = Color.Red,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(8.dp)
-            )
-        }
-    }
+fun QRCodeImage() {
+    Image(
+        painter = painterResource(id = R.drawable.qr),
+        contentDescription = "QR Code thanh toán VNPay",
+        modifier = Modifier
+            .size(500.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White)
+            .padding(12.dp)
+    )
 }
 
-fun saveBitmapToFile(context: Context, bitmap: android.graphics.Bitmap, fileName: String) {
-    try {
-        val file = File(context.getExternalFilesDir(null), fileName)
-        FileOutputStream(file).use { out: FileOutputStream ->
-            bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
-        }
-        Log.d("QRCodeImage", "Saved QR code to: ${file.absolutePath}")
-    } catch (e: Exception) {
-        Log.e("QRCodeImage", "Error saving QR code: ${e.message}")
-    }
-}
