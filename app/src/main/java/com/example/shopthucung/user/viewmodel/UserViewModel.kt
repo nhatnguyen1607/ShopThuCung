@@ -212,9 +212,6 @@ class UserViewModel(private val db: FirebaseFirestore, private val uid: String) 
                 }
 
                 currentUser.updatePassword(newPassword).await()
-                val updatedUser = userData.copy(matKhau = newPassword)
-                db.collection("user").document(uid).set(updatedUser).await()
-                _user.value = updatedUser
                 _message.value = "Đổi mật khẩu thành công"
             } catch (e: Exception) {
                 _message.value = "Đổi mật khẩu thất bại: ${e.message}"

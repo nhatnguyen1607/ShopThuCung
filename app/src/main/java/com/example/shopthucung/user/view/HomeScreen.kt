@@ -1,5 +1,6 @@
 package com.example.shopthucung.user.view
 
+import android.annotation.SuppressLint
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -43,6 +44,7 @@ import com.example.shopthucung.R
 import com.example.shopthucung.model.Banner
 import com.example.shopthucung.model.Product
 import com.example.shopthucung.user.viewmodel.HomeViewModel
+import com.example.shopthucung.user.viewmodel.NotificationViewModel
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.delay
@@ -51,9 +53,10 @@ import kotlinx.coroutines.tasks.await
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.layout.ContentScale
 
+@SuppressLint("StateFlowValueCalledInComposition")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
+fun HomeScreen(navController: NavController, homeViewModel: HomeViewModel, notificationViewModel: NotificationViewModel) {
     val searchQuery = remember { mutableStateOf("") }
     val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
     var cartItemCount by remember { mutableStateOf(0) }
@@ -65,7 +68,8 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
     var banners by remember { mutableStateOf<List<Banner>>(emptyList()) }
     var currentBannerIndex by remember { mutableStateOf(0) }
 
-    // Tải danh sách banner từ Firestore
+    val notificationCount = notificationViewModel.notifications.value.size
+
     LaunchedEffect(Unit) {
         try {
             val snapshot = FirebaseFirestore.getInstance()
@@ -142,7 +146,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                             painter = painterResource(id = R.drawable.logo_petshop),
                             contentDescription = "Logo",
                             modifier = Modifier
-                                .size(60.dp) // Giảm kích thước logo để cân đối
+                                .size(60.dp)
                                 .padding(end = 12.dp)
                         )
                         OutlinedTextField(
@@ -150,7 +154,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                             onValueChange = { searchQuery.value = it },
                             modifier = Modifier
                                 .weight(1f)
-                                .shadow(4.dp, RoundedCornerShape(16.dp)), // Tăng shadow cho nổi bật
+                                .shadow(4.dp, RoundedCornerShape(16.dp)),
                             placeholder = { Text("Tìm kiếm sản phẩm...") },
                             singleLine = true,
                             leadingIcon = {
@@ -171,7 +175,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                                     }
                                 }
                             },
-                            shape = RoundedCornerShape(16.dp), // Bo góc lớn hơn
+                            shape = RoundedCornerShape(16.dp),
                             textStyle = MaterialTheme.typography.bodyMedium,
                             colors = OutlinedTextFieldDefaults.colors(
                                 focusedBorderColor = Color(0xFFA5D6A7),
@@ -234,13 +238,30 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                             )
                         }
                     }
-                    IconButton(onClick = { navController.navigate("notifications") }) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = "Thông báo",
-                            tint = Color(0xFFA5D6A7),
-                            modifier = Modifier.size(28.dp)
-                        )
+                    BadgedBox(
+                        badge = {
+                            if (notificationCount > 0) {
+                                Badge(
+                                    containerColor = Color(0xFFF44336),
+                                    contentColor = Color.White
+                                ) {
+                                    Text(
+                                        text = notificationCount.toString(),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    ) {
+                        IconButton(onClick = { navController.navigate("notifications") }) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = "Thông báo",
+                                tint = Color(0xFFA5D6A7),
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
                     }
                     IconButton(onClick = {
                         val uid = FirebaseAuth.getInstance().currentUser?.uid ?: ""
@@ -332,7 +353,6 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                             .padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        // Nút danh mục
                         item {
                             Row(
                                 modifier = Modifier
@@ -380,13 +400,12 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                             }
                         }
 
-                        // Carousel banner
                         item {
                             if (banners.isNotEmpty()) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(280.dp) // Tăng chiều cao banner
+                                        .height(280.dp)
                                 ) {
                                     LazyRow(
                                         state = rowListState,
@@ -400,14 +419,13 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                                                 modifier = Modifier
                                                     .fillParentMaxWidth()
                                                     .height(280.dp)
-                                                    .clip(RoundedCornerShape(16.dp)), // Bo góc cho banner
-                                                contentScale = ContentScale.Crop, // Cắt ảnh để vừa khung
+                                                    .clip(RoundedCornerShape(16.dp)),
+                                                contentScale = ContentScale.Crop,
                                                 error = painterResource(R.drawable.placeholder_image)
                                             )
                                         }
                                     }
 
-                                    // Chỉ báo (dots indicator)
                                     Row(
                                         modifier = Modifier
                                             .align(Alignment.BottomCenter)
@@ -432,7 +450,6 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                             }
                         }
 
-                        // Sản phẩm nổi bật
                         item {
                             Row(
                                 modifier = Modifier
@@ -453,9 +470,9 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                         item {
                             LazyRow(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp) // Giảm khoảng cách
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                items(viewModel.trendingProducts.value) { product ->
+                                items(homeViewModel.trendingProducts.value) { product ->
                                     ProductCard(
                                         price = product.gia_sp,
                                         name = product.ten_sp,
@@ -473,7 +490,6 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                             Spacer(modifier = Modifier.height(16.dp))
                         }
 
-                        // Sản phẩm mới
                         item {
                             Row(
                                 modifier = Modifier
@@ -496,7 +512,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                items(viewModel.newProducts.value) { product ->
+                                items(homeViewModel.newProducts.value) { product ->
                                     ProductCard(
                                         price = product.gia_sp,
                                         name = product.ten_sp,
@@ -514,7 +530,6 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                             Spacer(modifier = Modifier.height(16.dp))
                         }
 
-                        // Xếp hạng cao
                         item {
                             Row(
                                 modifier = Modifier
@@ -524,7 +539,7 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Xếp hạng cao",
+                                    text = "Đánh giá cao",
                                     fontSize = 24.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = Color(0xFF424242)
@@ -537,13 +552,15 @@ fun HomeScreen(navController: NavController, viewModel: HomeViewModel) {
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                items(viewModel.topRatedProducts.value) { product ->
+                                items(homeViewModel.topRatedProducts.value) { product ->
                                     ProductCard(
                                         price = product.gia_sp,
                                         name = product.ten_sp,
                                         imageUrls = product.anh_sp,
                                         isNew = false,
                                         discount = product.giam_gia,
+                                        rating = product.danh_gia,
+                                        isTopRated = true,
                                         productId = product.id_sanpham,
                                         navController = navController
                                     )
@@ -599,15 +616,18 @@ fun ProductCard(
     imageUrls: List<String>,
     isNew: Boolean,
     discount: Int,
+    rating: Float = 0f,
+    isTopRated: Boolean = false,
     productId: Int,
     navController: NavController,
     modifier: Modifier = Modifier
 ) {
     Card(
         modifier = modifier
-            .width(150.dp) // Giảm chiều rộng để hiển thị nhiều sản phẩm hơn
+            .width(150.dp)
+            .height(220.dp)
             .padding(vertical = 4.dp)
-            .shadow(8.dp, RoundedCornerShape(16.dp)), // Tăng shadow cho nổi bật
+            .shadow(8.dp, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = Color.White
@@ -626,7 +646,7 @@ fun ProductCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(110.dp) // Giảm chiều cao ảnh
+                        .height(110.dp)
                         .clip(RoundedCornerShape(12.dp))
                         .background(Color(0xFFE0E0E0))
                 ) {
@@ -640,7 +660,32 @@ fun ProductCard(
                         error = painterResource(R.drawable.placeholder_image)
                     )
 
-                    if (discount > 0) {
+                    if (isTopRated) {
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.TopStart)
+                                .background(
+                                    Color(0xFFFFC107),
+                                    RoundedCornerShape(8.dp)
+                                )
+                                .padding(horizontal = 6.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                painter = painterResource(id = R.drawable.ic_star),
+                                contentDescription = "Sao",
+                                tint = Color.White,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text(
+                                text = String.format("%.1f", rating),
+                                fontSize = 12.sp,
+                                color = Color.White,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    } else if (discount > 0) {
                         Text(
                             text = "-$discount%",
                             fontSize = 12.sp,
@@ -649,7 +694,7 @@ fun ProductCard(
                             modifier = Modifier
                                 .align(Alignment.TopStart)
                                 .background(
-                                    Color(0xFFF44336), // Đổi màu nền thành đỏ để nổi bật
+                                    Color(0xFFF44336),
                                     RoundedCornerShape(8.dp)
                                 )
                                 .padding(horizontal = 6.dp, vertical = 4.dp)
@@ -665,7 +710,7 @@ fun ProductCard(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
                                 .background(
-                                    Color(0xFFA5D6A7), // Đổi màu nền thành xanh lá
+                                    Color(0xFFA5D6A7),
                                     RoundedCornerShape(8.dp)
                                 )
                                 .padding(horizontal = 6.dp, vertical = 4.dp)
@@ -676,7 +721,7 @@ fun ProductCard(
 
                 Text(
                     text = name,
-                    fontSize = 14.sp, // Giảm kích thước chữ để vừa khung
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF424242),
                     maxLines = 1
@@ -684,28 +729,33 @@ fun ProductCard(
 
                 Spacer(modifier = Modifier.height(4.dp))
 
-                if (discount > 0) {
-                    Text(
-                        text = "${price.formatWithComma()} đ",
-                        fontSize = 12.sp,
-                        color = Color(0xFF757575),
-                        style = TextStyle(textDecoration = TextDecoration.LineThrough)
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    val discountedPrice = price - (price * discount / 100)
-                    Text(
-                        text = "${discountedPrice.formatWithComma()} đ",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFF44336)
-                    )
-                } else {
-                    Text(
-                        text = "${price.formatWithComma()} đ",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFFF44336)
-                    )
+                Column(
+                    modifier = Modifier.height(40.dp),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    if (discount > 0) {
+                        Text(
+                            text = "${price.formatWithComma()} đ",
+                            fontSize = 12.sp,
+                            color = Color(0xFF757575),
+                            style = TextStyle(textDecoration = TextDecoration.LineThrough)
+                        )
+                        val discountedPrice = price - (price * discount / 100)
+                        Text(
+                            text = "${discountedPrice.formatWithComma()} đ",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFF44336)
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "${price.formatWithComma()} đ",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFF44336)
+                        )
+                    }
                 }
             }
         }
@@ -744,7 +794,7 @@ fun SearchProductCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(90.dp) // Giảm kích thước ảnh
+                    .size(90.dp)
                     .clip(RoundedCornerShape(12.dp))
                     .background(Color(0xFFE0E0E0))
             ) {

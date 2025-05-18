@@ -127,12 +127,29 @@ fun UserScreen(navController: NavController, uid: String) {
                             selected = selectedTab == index,
                             onClick = { selectedTab = index },
                             text = {
-                                Text(
-                                    text = title,
-                                    fontSize = 16.sp,
-                                    fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (selectedTab == index) Color(0xFFA5D6A7) else Color(0xFF757575)
-                                )
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(
+                                        text = title,
+                                        fontSize = 16.sp,
+                                        fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (selectedTab == index) Color(0xFFA5D6A7) else Color(0xFF757575)
+                                    )
+                                    if (index == 1 && orders.isNotEmpty()) { // Hiển thị badge cho "Đơn hàng của tôi"
+                                        Badge(
+                                            modifier = Modifier
+                                                .align(Alignment.TopEnd)
+                                                .offset(x = 8.dp, y = (-4.dp)),
+                                            containerColor = Color.Red,
+                                            contentColor = Color.White
+                                        ) {
+                                            Text(
+                                                text = orders.size.toString(),
+                                                fontSize = 12.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                }
                             }
                         )
                     }

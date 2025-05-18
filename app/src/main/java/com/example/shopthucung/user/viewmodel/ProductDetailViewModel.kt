@@ -15,31 +15,23 @@ import kotlinx.coroutines.tasks.await
 
 class ProductDetailViewModel : ViewModel() {
     private val db = Firebase.firestore
-
-    // Trạng thái cho sản phẩm
     private val _productState = MutableStateFlow<Product?>(null)
     val productState: StateFlow<Product?> = _productState.asStateFlow()
 
-    // Trạng thái cho danh sách đánh giá
     private val _reviewsState = MutableStateFlow<List<Review>>(emptyList())
     val reviewsState: StateFlow<List<Review>> = _reviewsState.asStateFlow()
 
-    // Trạng thái cho danh sách đánh giá gốc (chưa lọc)
     private val _originalReviewsState = MutableStateFlow<List<Review>>(emptyList())
 
-    // Trạng thái cho thông tin người dùng
     private val _usersState = MutableStateFlow<Map<String, User>>(emptyMap())
     val usersState: StateFlow<Map<String, User>> = _usersState.asStateFlow()
 
-    // Trạng thái cho số sao trung bình
     private val _averageRating = MutableStateFlow(0f)
     val averageRating: StateFlow<Float> = _averageRating.asStateFlow()
 
-    // Trạng thái cho thông báo lỗi
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
-    // Trạng thái cho bộ lọc số sao
     private val _selectedFilter = MutableStateFlow<Int?>(null)
     val selectedFilter: StateFlow<Int?> = _selectedFilter.asStateFlow()
 
@@ -65,7 +57,6 @@ class ProductDetailViewModel : ViewModel() {
     fun fetchReviews(productId: Int) {
         viewModelScope.launch {
             try {
-                // Lấy danh sách đánh giá từ collection con "reviews" trong document id_sanpham
                 val snapshot = db.collection("products_reviews")
                     .document(productId.toString())
                     .collection("reviews")
@@ -75,8 +66,8 @@ class ProductDetailViewModel : ViewModel() {
                 val reviews = snapshot.documents.mapNotNull { doc ->
                     doc.toObject(Review::class.java)?.copy(id = doc.id)
                 }
-                _originalReviewsState.value = reviews // Lưu danh sách đánh giá gốc
-                _reviewsState.value = reviews // Cập nhật danh sách hiển thị
+                _originalReviewsState.value = reviews
+                _reviewsState.value = reviews
 
                 // Tính số sao trung bình
                 if (reviews.isNotEmpty()) {
@@ -86,7 +77,6 @@ class ProductDetailViewModel : ViewModel() {
                     _averageRating.value = 0f
                 }
 
-                // Lấy thông tin người dùng từ idUser trong các đánh giá
                 val userIds = reviews.map { it.idUser }.distinct()
                 val userMap = mutableMapOf<String, User>()
                 for (userId in userIds) {
@@ -112,13 +102,12 @@ class ProductDetailViewModel : ViewModel() {
         }
     }
 
-    // Hàm thiết lập bộ lọc
     fun setFilter(stars: Int?) {
         _selectedFilter.value = stars
         _reviewsState.value = if (stars == null) {
-            _originalReviewsState.value // Hiển thị tất cả đánh giá nếu không có bộ lọc
+            _originalReviewsState.value
         } else {
-            _originalReviewsState.value.filter { it.rating == stars } // Lọc theo số sao
+            _originalReviewsState.value.filter { it.rating == stars }
         }
     }
 

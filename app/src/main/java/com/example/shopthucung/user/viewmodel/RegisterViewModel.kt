@@ -43,14 +43,12 @@ class RegisterViewModel(
                     val idUser = currentUser.uid
                     println("RegisterViewModel: Registration successful, user UID: $idUser")
 
-                    // Lưu dữ liệu người dùng tạm thời
                     val userData = User(
                         diaChi = diaChi,
                         sdt = sdt,
                         email = email,
                         hoVaTen = hoVaTen,
                         idUser = idUser,
-                        matKhau = password,
                         active = true,
                         role = "user"
                     )

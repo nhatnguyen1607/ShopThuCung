@@ -112,7 +112,6 @@ class OrderViewModel : ViewModel() {
                         .set(order)
                         .await()
 
-                    // Cập nhật số lượng và số lượng bán
                     product.so_luong_ban += order.quantity
                     db.collection("product")
                         .document(product.ten_sp.toString())
@@ -152,7 +151,6 @@ class OrderViewModel : ViewModel() {
                     return@launch
                 }
 
-                // Kiểm tra số lượng tồn kho cho tất cả sản phẩm trong giỏ hàng
                 for (cartItem in cartItems) {
                     val product = cartItem.product ?: continue
                     if (product.soluong < cartItem.quantity) {

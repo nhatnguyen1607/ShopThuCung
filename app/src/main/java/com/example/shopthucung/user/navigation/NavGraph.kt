@@ -15,15 +15,19 @@ import com.example.shopthucung.user.view.CartScreen
 import com.example.shopthucung.user.view.CheckoutScreen
 import com.example.shopthucung.user.view.HomeScreen
 import com.example.shopthucung.user.view.LoginScreen
+import com.example.shopthucung.user.view.NotificationScreen
 import com.example.shopthucung.user.view.OrderDetailScreen
+import com.example.shopthucung.user.view.PetScreen
 import com.example.shopthucung.user.view.ProductDetailScreen
 import com.example.shopthucung.user.view.RatingScreen
 import com.example.shopthucung.user.view.RegisterScreen
+import com.example.shopthucung.user.view.SuppliesScreen
 import com.example.shopthucung.user.view.UserScreen
 import com.example.shopthucung.user.view.VerificationScreen
 import com.example.shopthucung.user.viewmodel.CartViewModel
 import com.example.shopthucung.user.viewmodel.HomeViewModel
 import com.example.shopthucung.user.viewmodel.LoginViewModel
+import com.example.shopthucung.user.viewmodel.NotificationViewModel
 import com.example.shopthucung.user.viewmodel.OrderViewModel
 import com.example.shopthucung.user.viewmodel.ProductDetailViewModel
 import com.example.shopthucung.user.viewmodel.RegisterViewModel
@@ -31,8 +35,6 @@ import com.example.shopthucung.user.viewmodel.RegisterViewModelFactory
 import com.google.firebase.firestore.FirebaseFirestore
 import com.example.shopthucung.model.Product
 import com.example.shopthucung.model.CartItem
-import com.example.shopthucung.user.view.PetScreen
-import com.example.shopthucung.user.view.SuppliesScreen
 import org.json.JSONObject
 import org.json.JSONArray
 import java.net.URLDecoder
@@ -43,7 +45,6 @@ fun NavGraph(navController: NavHostController) {
     val firestore = FirebaseFirestore.getInstance()
     val loginViewModel = LoginViewModel(firestore)
 
-    // Sử dụng LocalActivity để lấy Activity
     val activity = LocalActivity.current
     val registerViewModel: RegisterViewModel = viewModel(
         factory = RegisterViewModelFactory(firestore, activity)
@@ -53,6 +54,7 @@ fun NavGraph(navController: NavHostController) {
     val storeOwner = LocalViewModelStoreOwner.current!!
     val cartViewModel = viewModel<CartViewModel>(storeOwner)
     val orderViewModel = viewModel<OrderViewModel>(storeOwner)
+    val notificationViewModel = viewModel<NotificationViewModel>(storeOwner) // Thêm NotificationViewModel
 
     NavHost(
         navController = navController,
@@ -73,7 +75,13 @@ fun NavGraph(navController: NavHostController) {
                 navDeepLink { uriPattern = "android-app://android.navigation/HomeScreen" }
             )
         ) {
-            HomeScreen(navController = navController, viewModel = homeViewModel)
+            HomeScreen(navController = navController, homeViewModel = homeViewModel, notificationViewModel = notificationViewModel)
+        }
+        composable("notifications") {
+            NotificationScreen(
+                navController = navController,
+                viewModel = notificationViewModel // Truyền NotificationViewModel đã khởi tạo
+            )
         }
         composable("pet") { PetScreen(navController) }
         composable("supplies") { SuppliesScreen(navController) }
@@ -203,4 +211,3 @@ fun NavGraph(navController: NavHostController) {
         }
     }
 }
-

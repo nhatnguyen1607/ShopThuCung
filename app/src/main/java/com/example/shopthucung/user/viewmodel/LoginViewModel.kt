@@ -37,7 +37,6 @@ class LoginViewModel(
                             email = email,
                             hoVaTen = "",
                             idUser = idUser,
-                            matKhau = password,
                             active = true,
                             role = "user"
                         )
@@ -94,7 +93,20 @@ class LoginViewModel(
     fun clearMessage() {
         _message.value = null
     }
+
     fun setMessage(msg: String) {
         _message.value = msg
+    }
+
+    fun resetPassword(email: String, onResult: (Boolean, String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                auth.sendPasswordResetEmail(email).await()
+                onResult(true, null)
+            } catch (e: Exception) {
+                println("LoginViewModel: Reset password failed with exception: ${e.message}")
+                onResult(false, "Gửi email đặt lại mật khẩu thất bại: ${e.message}")
+            }
+        }
     }
 }

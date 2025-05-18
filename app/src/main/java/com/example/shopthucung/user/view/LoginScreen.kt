@@ -58,6 +58,7 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel) {
     // Hiển thị thông báo lỗi hoặc thành công
     LaunchedEffect(message) {
         message?.let { msg ->
+            val isSuccess = msg == "Gửi email đặt lại mật khẩu thành công!"
             val result = snackbarHostState.showSnackbar(
                 message = msg,
                 actionLabel = "Đóng",
@@ -83,7 +84,7 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel) {
                     modifier = Modifier
                         .padding(8.dp)
                         .shadow(4.dp, RoundedCornerShape(8.dp)),
-                    containerColor = Color(0xFFF44336),
+                    containerColor = if (data.visuals.message == "Gửi email đặt lại mật khẩu thành công!") Color(0xFF4CAF50) else Color(0xFFF44336),
                     contentColor = Color.White,
                     actionContentColor = Color(0xFFFFEB3B),
                     shape = RoundedCornerShape(8.dp)
@@ -196,6 +197,23 @@ fun LoginScreen(navController: NavController, viewModel: LoginViewModel) {
 
                 TextButton(onClick = { if (!isLoading) navController.navigate("register") }) {
                     Text("Chưa có tài khoản? Đăng ký")
+                }
+
+                // Thêm nút "Quên mật khẩu"
+                TextButton(onClick = {
+                    if (email.isNotBlank() && android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                        viewModel.resetPassword(email) { success, message ->
+                            coroutineScope.launch {
+                                viewModel.setMessage(message ?: "Gửi email đặt lại mật khẩu thành công!")
+                            }
+                        }
+                    } else {
+                        coroutineScope.launch {
+                            viewModel.setMessage("Vui lòng nhập email hợp lệ!")
+                        }
+                    }
+                }) {
+                    Text("Quên mật khẩu?")
                 }
             }
         }

@@ -87,4 +87,9 @@ dependencies {
     implementation ("com.google.accompanist:accompanist-pager:0.34.0")
     implementation ("com.google.accompanist:accompanist-pager-indicators:0.34.0")
     implementation ("androidx.activity:activity-compose:1.9.0")
+    implementation ("androidx.compose.runtime:runtime:1.6.0")
+    implementation ("androidx.lifecycle:lifecycle-runtime-ktx:2.8.0")
+    implementation ("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.0")
+    implementation ("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+
 }

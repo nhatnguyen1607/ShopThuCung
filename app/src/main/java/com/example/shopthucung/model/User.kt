@@ -11,7 +11,7 @@ data class User(
     @PropertyName("email") val email: String = "",
     @PropertyName("hoVaTen") val hoVaTen: String = "",
     @PropertyName("idUser") val idUser: String = "",
-    @PropertyName("matKhau") val matKhau: String = "",
+//    @PropertyName("matKhau") val matKhau: String = "",
     @SerializedName("active") val active: Boolean = true,
     @PropertyName("role") val role: String = "user",
     @PropertyName("avatar") val avatar: String = ""
