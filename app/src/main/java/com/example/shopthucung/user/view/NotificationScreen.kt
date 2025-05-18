@@ -132,73 +132,100 @@ fun NotificationCard(notification: Notifications, navController: NavController) 
         timeZone = TimeZone.getTimeZone("GMT+07:00")
     }
     val formattedNotdate = notification.notdate?.toDate()?.let { dateFormat.format(it) } ?: "Chưa xác định"
+
+    val cardBackgroundColor = if (notification.readed) Color(0xFFC0C0C0) else Color(0xFF99FFFF)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable {
+                if (!notification.readed) {
+                    FirebaseFirestore.getInstance()
+                        .collection("notifications")
+                        .document(notification.idNotification.toString())
+                        .update("readed", true)
+                        .addOnSuccessListener {
+                            println("Cập nhật trạng thái readed thành công cho thông báo ${notification.idNotification}")
+                        }
+                        .addOnFailureListener { e ->
+                            println("Lỗi khi cập nhật trạng thái readed: ${e.message}")
+                        }
+                }
                 val encodedOrderJson = URLEncoder.encode(orderJson, StandardCharsets.UTF_8.toString())
                 navController.navigate("order_detail/$encodedOrderJson")
             },
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = cardBackgroundColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
+        Box {
+            Row(
                 modifier = Modifier
-                    .size(40.dp)
-                    .background(Color(0xFFE3F2FD), shape = RoundedCornerShape(8.dp)),
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "🔔",
-                    fontSize = 20.sp
-                )
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(Color(0xFFE3F2FD), shape = RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "🔔",
+                        fontSize = 20.sp
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = notification.content,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color(0xFF1F2A44)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Mã đơn hàng: ${notification.orderId}",
+                            fontSize = 14.sp,
+                            color = Color(0xFF6B7280),
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = formattedNotdate,
+                            fontSize = 12.sp,
+                            color = Color(0xFF10A37F),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
-
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = notification.content,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF1F2A44)
+            // Hiển thị chấm đỏ nếu readed = false
+            if (!notification.readed) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp)
+                        .size(10.dp)
+                        .background(Color.Red, shape = RoundedCornerShape(5.dp))
                 )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Mã đơn hàng: ${notification.orderId}",                        fontSize = 14.sp,
-                        color = Color(0xFF6B7280),
-                        modifier = Modifier.padding(start = 8.dp)
-
-                    )
-                }
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = formattedNotdate,
-                        fontSize = 12.sp,
-                        color = Color(0xFF10A37F),
-                        fontWeight = FontWeight.SemiBold,
-
-                    )
-                }
             }
         }
     }

@@ -8,5 +8,7 @@ data class Notifications(
     @PropertyName("idNotification") var idNotification: Int = 0,
     @PropertyName("orderId") var orderId: String = "",
     @PropertyName("idUser") var idUser: String = "",
-    @PropertyName("notdate") var notdate: com.google.firebase.Timestamp? = null
-)
+    @PropertyName("notdate") var notdate: com.google.firebase.Timestamp? = null,
+    @PropertyName("readed") var readed: Boolean = false,
+
+    )

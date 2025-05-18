@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
@@ -68,8 +69,8 @@ fun HomeScreen(navController: NavController, homeViewModel: HomeViewModel, notif
     var banners by remember { mutableStateOf<List<Banner>>(emptyList()) }
     var currentBannerIndex by remember { mutableStateOf(0) }
 
-    val notificationCount = notificationViewModel.notifications.value.size
-
+    val notifications by notificationViewModel.notifications.collectAsState()
+    val notificationCount = notifications.count { !it.readed }
     LaunchedEffect(Unit) {
         try {
             val snapshot = FirebaseFirestore.getInstance()
