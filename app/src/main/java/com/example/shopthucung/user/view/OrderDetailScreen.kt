@@ -73,7 +73,6 @@ fun OrderDetailScreen(navController: NavController, orderJson: String) {
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Hình ảnh sản phẩm
             AsyncImage(
                 model = order.product?.anh_sp?.firstOrNull() ?: "",
                 contentDescription = "Ảnh sản phẩm",
@@ -90,7 +89,6 @@ fun OrderDetailScreen(navController: NavController, orderJson: String) {
                 error = painterResource(id = android.R.drawable.ic_menu_report_image)
             )
 
-            // Card thông tin đơn hàng
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -114,22 +112,17 @@ fun OrderDetailScreen(navController: NavController, orderJson: String) {
                         color = Color(0xFF212121)
                     )
 
-                    // Mã đơn hàng
                     InfoRow(label = "Mã đơn hàng:", value = order.orderId, valueFontSize = 12.sp)
 
-                    // Sản phẩm
                     InfoRow(
                         label = "Sản phẩm:",
                         value = order.product?.ten_sp ?: "Không có thông tin"
                     )
 
-                    // Số lượng
                     InfoRow(label = "Số lượng:", value = order.quantity.toString())
 
-                    // Phương thức thanh toán
                     InfoRow(label = "Phương thức thanh toán:", value = order.paymentMethod)
 
-                    // Trạng thái
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -141,7 +134,6 @@ fun OrderDetailScreen(navController: NavController, orderJson: String) {
                             fontWeight = FontWeight.Medium,
                             color = Color(0xFF212121)
                         )
-                        // Hiển thị trạng thái dưới dạng badge
                         Surface(
                             shape = RoundedCornerShape(16.dp),
                             color = when (order.status) {
@@ -170,15 +162,12 @@ fun OrderDetailScreen(navController: NavController, orderJson: String) {
                         }
                     }
 
-                    // Thời gian đặt hàng
                     InfoRow(label = "Thời gian đặt hàng:", value = formattedBookingDate)
 
-                    // Thời gian nhận hàng
                     InfoRow(label = "Thời gian nhận hàng:", value = formattedDeliveryDate)
                 }
             }
 
-            // Tổng tiền
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -203,7 +192,6 @@ fun OrderDetailScreen(navController: NavController, orderJson: String) {
     }
 }
 
-// Hàm tiện ích để hiển thị thông tin dạng hàng
 @Composable
 fun InfoRow(label: String, value: String, valueFontSize: TextUnit = 14.sp) {
     Row(

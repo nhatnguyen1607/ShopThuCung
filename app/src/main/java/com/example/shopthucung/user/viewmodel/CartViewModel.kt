@@ -40,7 +40,20 @@ class CartViewModel : ViewModel() {
                     _errorMessage.value = "Người dùng chưa đăng nhập!"
                     return@launch
                 }
+                val productRef = db.collection("product").document(product.ten_sp)
+                val productSnapshot = productRef.get().await()
+                if (!productSnapshot.exists()) {
+                    Log.w("CartViewModel", "Sản phẩm không tồn tại: ${product.ten_sp}")
+                    _errorMessage.value = "Sản phẩm ${product.ten_sp} không tồn tại trong kho!"
+                    return@launch
+                }
 
+                val productSoluong = productSnapshot.getLong("soluong")?.toInt() ?: 0
+                if (productSoluong == 0) {
+                    Log.w("CartViewModel", "Hết sản phẩm: ${product.ten_sp}")
+                    _errorMessage.value = "Hết sản phẩm ${product.ten_sp}!"
+                    return@launch
+                }
                 val existingItem = db.collection("cart")
                     .whereEqualTo("userId", userId)
                     .whereEqualTo("productId", product.id_sanpham)
@@ -186,6 +199,27 @@ class CartViewModel : ViewModel() {
 
                 if (newQuantity <= 0) {
                     removeCartItem(cartItem)
+                    return@launch
+                }
+
+                val product = cartItem.product ?: run {
+                    _errorMessage.value = "Sản phẩm không hợp lệ!"
+                    return@launch
+                }
+
+                // Kiểm tra số lượng tồn kho
+                val productRef = db.collection("product").document(product.ten_sp)
+                val productSnapshot = productRef.get().await()
+                if (!productSnapshot.exists()) {
+                    Log.w("CartViewModel", "Sản phẩm không tồn tại: ${product.ten_sp}")
+                    _errorMessage.value = "Sản phẩm ${product.ten_sp} không tồn tại trong kho!"
+                    return@launch
+                }
+
+                val productSoluong = productSnapshot.getLong("soluong")?.toInt() ?: 0
+                if (productSoluong < newQuantity) {
+                    Log.w("CartViewModel", "Số lượng không đủ: ${product.ten_sp}, còn $productSoluong")
+                    _errorMessage.value = "Số lượng sản phẩm ${product.ten_sp} không đủ! Chỉ còn $productSoluong sản phẩm."
                     return@launch
                 }
 

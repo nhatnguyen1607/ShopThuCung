@@ -69,7 +69,6 @@ class ProductDetailViewModel : ViewModel() {
                 _originalReviewsState.value = reviews
                 _reviewsState.value = reviews
 
-                // Tính số sao trung bình
                 if (reviews.isNotEmpty()) {
                     val totalRating = reviews.sumOf { it.rating }
                     _averageRating.value = totalRating.toFloat() / reviews.size

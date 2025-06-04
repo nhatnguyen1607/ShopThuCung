@@ -75,6 +75,7 @@ fun HomeScreen(navController: NavController, homeViewModel: HomeViewModel, notif
         try {
             val snapshot = FirebaseFirestore.getInstance()
                 .collection("banner")
+                .whereEqualTo("status", "Bật")
                 .get()
                 .await()
             banners = snapshot.documents.mapNotNull { doc ->

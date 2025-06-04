@@ -364,7 +364,6 @@ fun ProductDetailScreen(
 
                     Spacer(modifier = Modifier.height(24.dp))
 
-                    // Rating Section
                     RatingSection(
                         averageRating = averageRating.value,
                         reviews = reviewsState.value,

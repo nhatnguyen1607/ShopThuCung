@@ -53,6 +53,7 @@ fun PetScreen(navController: NavController) {
             val query = FirebaseFirestore.getInstance()
                 .collection("product")
                 .whereGreaterThanOrEqualTo("id_category", 2)
+
             val snapshot = if (selectedCategoryId != null) {
                 query.whereEqualTo("id_category", selectedCategoryId).get().await()
             } else {
