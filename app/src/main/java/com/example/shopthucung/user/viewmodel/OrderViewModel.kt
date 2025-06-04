@@ -11,6 +11,7 @@ import com.example.shopthucung.utils.VNPayHelper
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.google.firebase.Timestamp
 import com.google.gson.Gson
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -67,9 +68,8 @@ class OrderViewModel : ViewModel() {
                 } else {
                     product.gia_sp
                 }
-                val totalPrice = price * quantity
+                val totalPrice = (price * quantity).toLong()
 
-                // Lấy index lớn nhất từ Firestore
                 val querySnapshot = db.collection("orders")
                     .whereEqualTo("userId", userId)
                     .whereEqualTo("productId", product.id_sanpham)
@@ -96,13 +96,33 @@ class OrderViewModel : ViewModel() {
                     quantity = quantity,
                     totalPrice = totalPrice,
                     paymentMethod = paymentMethod,
-                    status = "Đang xử lí"
+                    status = "Đang xử lí",
+                    bookingDate = Timestamp.now(),
+                    deliveryDate = Timestamp.now()
                 )
 
                 if (paymentMethod == "VNPay") {
                     db.collection("orders")
                         .document(orderId)
                         .set(order)
+                        .await()
+
+                    val combinedOrder = hashMapOf(
+                        "orderId" to orderId,
+                        "userId" to userId,
+                        "productId" to product.id_sanpham,
+                        "product" to product,
+                        "quantity" to quantity,
+                        "totalPrice" to totalPrice,
+                        "paymentMethod" to paymentMethod,
+                        "status" to "Đang xử lí",
+                        "bookingDate" to Timestamp.now(),
+                        "deliveryDate" to Timestamp.now(),
+                        "items" to emptyList<CartItem>()
+                    )
+                    db.collection("combined_orders")
+                        .document(orderId)
+                        .set(combinedOrder)
                         .await()
 
                     val vnpayUrl = VNPayHelper.createPaymentUrl(
@@ -115,7 +135,7 @@ class OrderViewModel : ViewModel() {
                     _vnpayUrls.value = listOf(orderId to vnpayUrl)
                     _pendingOrders.value = listOf(order)
                     savePendingOrders(context, listOf(order))
-                    Log.d("OrderViewModel", "Added to orders: $orderId")
+                    Log.d("OrderViewModel", "Added to orders and combined_orders: $orderId")
                     VNPayHelper.launchPayment(context, vnpayUrl, orderId)
                 } else {
                     db.collection("orders")
@@ -130,8 +150,12 @@ class OrderViewModel : ViewModel() {
                         return@launch
                     }
 
+                    product.soluong -= quantity
                     product.so_luong_ban += quantity
-                    productRef.update("so_luong_ban", product.so_luong_ban).await()
+                    productRef.update(
+                        "soluong", product.soluong,
+                        "so_luong_ban", product.so_luong_ban
+                    ).await()
 
                     _pendingOrders.value = emptyList()
                     _successMessage.value = "Thanh toán thành công với $paymentMethod!"
@@ -167,7 +191,6 @@ class OrderViewModel : ViewModel() {
                     return@launch
                 }
 
-                // Kiểm tra số lượng sản phẩm
                 cartItems.forEach { cartItem ->
                     val product = cartItem.product ?: return@forEach
                     if (product.soluong == 0) {
@@ -180,65 +203,140 @@ class OrderViewModel : ViewModel() {
                     }
                 }
 
-                // Tính tổng tiền
-                val totalPrice = cartItems.sumOf { cartItem ->
-                    val product = cartItem.product!!
-                    val price = if (product.giam_gia > 0) {
-                        product.gia_sp - (product.gia_sp * product.giam_gia / 100)
-                    } else {
-                        product.gia_sp
-                    }
-                    price * cartItem.quantity
-                }
-
-                // Vì là đơn hàng gộp, productId = -1, lấy index từ Firestore
-                val querySnapshot = db.collection("orders")
-                    .whereEqualTo("userId", userId)
-                    .whereEqualTo("productId", -1)
-                    .get()
-                    .await()
-
-                var maxIndex = 0
-                for (document in querySnapshot.documents) {
-                    val docId = document.id
-                    val index = docId.substringAfterLast("_").toIntOrNull() ?: 0
-                    if (index > maxIndex) {
-                        maxIndex = index
-                    }
-                }
-
-                val newIndex = maxIndex + 1
-                val orderId = "${userId}_-1_$newIndex"
-
-                val order = Order(
-                    orderId = orderId,
-                    userId = userId,
-                    productId = -1,
-                    product = null,
-                    quantity = cartItems.sumOf { it.quantity },
-                    totalPrice = totalPrice,
-                    paymentMethod = paymentMethod,
-                    status = "Đang xử lí"
-                )
-
                 if (paymentMethod == "VNPay") {
-                    db.collection("orders")
-                        .document(orderId)
-                        .set(order)
-                        .await()
+                    if (cartItems.size == 1) {
+                        val cartItem = cartItems[0]
+                        val product = cartItem.product!!
+                        val price = if (product.giam_gia > 0) {
+                            product.gia_sp - (product.gia_sp * product.giam_gia / 100)
+                        } else {
+                            product.gia_sp
+                        }
+                        val totalPrice = (price * cartItem.quantity).toLong()
 
-                    val vnpayUrl = VNPayHelper.createPaymentUrl(
-                        context = context,
-                        orderId = orderId,
-                        amount = totalPrice,
-                        ipAddr = "127.0.0.1",
-                        orderInfo = "Thanh toan gio hang $orderId"
-                    )
-                    _vnpayUrls.value = listOf(orderId to vnpayUrl)
-                    _pendingOrders.value = listOf(order)
-                    savePendingOrders(context, listOf(order))
-                    Log.d("OrderViewModel", "Added combined order to orders: $orderId")
-                    VNPayHelper.launchPayment(context, vnpayUrl, orderId)
+                        val querySnapshot = db.collection("orders")
+                            .whereEqualTo("userId", userId)
+                            .whereEqualTo("productId", product.id_sanpham)
+                            .get()
+                            .await()
+
+                        var maxIndex = 0
+                        for (document in querySnapshot.documents) {
+                            val docId = document.id
+                            val index = docId.substringAfterLast("_").toIntOrNull() ?: 0
+                            if (index > maxIndex) {
+                                maxIndex = index
+                            }
+                        }
+
+                        val newIndex = maxIndex + 1
+                        val orderId = "${userId}_${product.id_sanpham}_$newIndex"
+
+                        val order = Order(
+                            orderId = orderId,
+                            userId = userId,
+                            productId = product.id_sanpham,
+                            product = product,
+                            quantity = cartItem.quantity,
+                            totalPrice = totalPrice,
+                            paymentMethod = paymentMethod,
+                            status = "Đang xử lí",
+                            bookingDate = Timestamp.now(),
+                            deliveryDate = Timestamp.now()
+                        )
+
+                        db.collection("orders")
+                            .document(orderId)
+                            .set(order)
+                            .await()
+
+                        val combinedOrder = hashMapOf(
+                            "orderId" to orderId,
+                            "userId" to userId,
+                            "productId" to product.id_sanpham,
+                            "product" to product,
+                            "quantity" to cartItem.quantity,
+                            "totalPrice" to totalPrice,
+                            "paymentMethod" to paymentMethod,
+                            "status" to "Đang xử lí",
+                            "bookingDate" to Timestamp.now(),
+                            "deliveryDate" to Timestamp.now(),
+                            "items" to emptyList<CartItem>()
+                        )
+                        db.collection("combined_orders")
+                            .document(orderId)
+                            .set(combinedOrder)
+                            .await()
+
+                        val vnpayUrl = VNPayHelper.createPaymentUrl(
+                            context = context,
+                            orderId = orderId,
+                            amount = totalPrice,
+                            ipAddr = "127.0.0.1",
+                            orderInfo = "Thanh toan don hang $orderId"
+                        )
+                        _vnpayUrls.value = listOf(orderId to vnpayUrl)
+                        _pendingOrders.value = listOf(order)
+                        savePendingOrders(context, listOf(order))
+                        Log.d("OrderViewModel", "Added single item order to orders and combined_orders: $orderId")
+                        VNPayHelper.launchPayment(context, vnpayUrl, orderId)
+                    } else {
+                        val totalPrice = cartItems.sumOf { cartItem ->
+                            val product = cartItem.product!!
+                            val price = if (product.giam_gia > 0) {
+                                product.gia_sp - (product.gia_sp * product.giam_gia / 100)
+                            } else {
+                                product.gia_sp
+                            }
+                            (price * cartItem.quantity).toLong()
+                        }
+
+                        val tempOrderId = "temp_${userId}_${System.currentTimeMillis()}"
+
+                        val combinedOrder = hashMapOf(
+                            "orderId" to tempOrderId,
+                            "userId" to userId,
+                            "productId" to -1,
+                            "product" to null,
+                            "quantity" to cartItems.sumOf { it.quantity },
+                            "totalPrice" to totalPrice,
+                            "paymentMethod" to paymentMethod,
+                            "status" to "Đang xử lí",
+                            "bookingDate" to Timestamp.now(),
+                            "deliveryDate" to Timestamp.now(),
+                            "items" to cartItems
+                        )
+
+                        db.collection("combined_orders")
+                            .document(tempOrderId)
+                            .set(combinedOrder)
+                            .await()
+
+                        val vnpayUrl = VNPayHelper.createPaymentUrl(
+                            context = context,
+                            orderId = tempOrderId,
+                            amount = totalPrice,
+                            ipAddr = "127.0.0.1",
+                            orderInfo = "Thanh toan gio hang $tempOrderId"
+                        )
+                        val orderForPending = Order(
+                            orderId = tempOrderId,
+                            userId = userId,
+                            productId = -1,
+                            product = null,
+                            quantity = cartItems.sumOf { it.quantity },
+                            totalPrice = totalPrice,
+                            paymentMethod = paymentMethod,
+                            status = "Đang xử lí",
+                            bookingDate = Timestamp.now(),
+                            deliveryDate = Timestamp.now()
+                        )
+                        _vnpayUrls.value = listOf(tempOrderId to vnpayUrl)
+                        _pendingOrders.value = listOf(orderForPending)
+                        savePendingOrders(context, listOf(orderForPending))
+                        Log.d("OrderViewModel", "Created combined order: $tempOrderId")
+                        VNPayHelper.launchPayment(context, vnpayUrl, tempOrderId)
+                    }
                 } else {
                     splitOrders(cartItems, userId, context)
                     _successMessage.value = "Đã tạo đơn hàng thành công với $paymentMethod!"
@@ -261,7 +359,7 @@ class OrderViewModel : ViewModel() {
             } else {
                 product.gia_sp
             }
-            val totalPrice = price * cartItem.quantity
+            val totalPrice = (price * cartItem.quantity).toLong()
 
             val querySnapshot = db.collection("orders")
                 .whereEqualTo("userId", userId)
@@ -288,7 +386,9 @@ class OrderViewModel : ViewModel() {
                 quantity = cartItem.quantity,
                 totalPrice = totalPrice,
                 paymentMethod = "COD",
-                status = "Đang xử lí"
+                status = "Đang xử lí",
+                bookingDate = Timestamp.now(),
+                deliveryDate = Timestamp.now()
             )
 
             db.collection("orders")
@@ -299,8 +399,12 @@ class OrderViewModel : ViewModel() {
             val productRef = db.collection("product").document(product.ten_sp)
             val productSnapshot = productRef.get().await()
             if (productSnapshot.exists()) {
+                product.soluong -= cartItem.quantity
                 product.so_luong_ban += cartItem.quantity
-                productRef.update("so_luong_ban", product.so_luong_ban).await()
+                productRef.update(
+                    "soluong", product.soluong,
+                    "so_luong_ban", product.so_luong_ban
+                ).await()
             }
 
             orderIds.add(orderId)
@@ -322,15 +426,21 @@ class OrderViewModel : ViewModel() {
             try {
                 Log.d("OrderViewModel", "Current pending orders: ${_pendingOrders.value.map { it.orderId }}")
                 var order = _pendingOrders.value.find { it.orderId == orderId }
+                val combinedOrderSnapshot = db.collection("combined_orders")
+                    .document(orderId)
+                    .get()
+                    .await()
+                var cartItems: List<CartItem> = emptyList()
+
+                if (!combinedOrderSnapshot.exists()) {
+                    throw Exception("Không tìm thấy đơn hàng với ID: $orderId trong combined_orders")
+                }
+
                 if (order == null) {
                     val savedOrders = loadPendingOrders(context)
                     order = savedOrders.find { it.orderId == orderId }
                     if (order == null) {
-                        val snapshot = db.collection("orders")
-                            .document(orderId)
-                            .get()
-                            .await()
-                        order = snapshot.toObject(Order::class.java)
+                        order = combinedOrderSnapshot.toObject(Order::class.java)
                         if (order == null) {
                             throw Exception("Không tìm thấy đơn hàng với ID: $orderId")
                         }
@@ -344,17 +454,179 @@ class OrderViewModel : ViewModel() {
 
                 val userId = auth.currentUser?.uid ?: throw Exception("Người dùng chưa đăng nhập!")
 
-                if (order.status == "Đang xử lí" && order.totalPrice > 0) {
+                if (order.productId == -1) {
+                    // Đơn hàng gộp (từ giỏ hàng)
+                    // Lấy cartItems từ combined_orders
+                    val items = combinedOrderSnapshot.get("items") as? List<Map<String, Any>> ?: emptyList()
+                    cartItems = items.mapNotNull { item ->
+                        try {
+                            val productMap = item["product"] as? Map<String, Any>
+                            val product = productMap?.let {
+                                Product(
+                                    id_sanpham = (it["id_sanpham"] as? Long)?.toInt() ?: 0,
+                                    ten_sp = it["ten_sp"] as? String ?: "",
+                                    gia_sp = (it["gia_sp"] as? Long)?.toLong() ?: 0,
+                                    giam_gia = (it["giam_gia"] as? Long)?.toInt() ?: 0,
+                                    soluong = (it["soluong"] as? Long)?.toInt() ?: 0,
+                                    so_luong_ban = (it["so_luong_ban"] as? Long)?.toInt() ?: 0,
+                                    anh_sp = (it["anh_sp"] as? List<String>) ?: emptyList()
+                                )
+                            }
+                            CartItem(
+                                userId = item["userId"] as? String ?: "",
+                                productId = (item["productId"] as? Long)?.toInt() ?: 0,
+                                quantity = (item["quantity"] as? Long)?.toInt() ?: 0,
+                                product = product,
+                                cartIndex = (item["cartIndex"] as? Long)?.toInt() ?: 0
+                            )
+                        } catch (e: Exception) {
+                            Log.e("OrderViewModel", "Error parsing CartItem: ${e.message}")
+                            null
+                        }
+                    }
+
+                    // Kiểm tra số lượng sản phẩm
+                    cartItems.forEach { cartItem ->
+                        val product = cartItem.product ?: throw Exception("Sản phẩm không hợp lệ!")
+                        val productRef = db.collection("product").document(product.ten_sp)
+                        val productSnapshot = productRef.get().await()
+                        if (!productSnapshot.exists()) {
+                            throw Exception("Sản phẩm ${product.ten_sp} không tồn tại trong kho!")
+                        }
+                        val productSoluong = productSnapshot.getLong("soluong")?.toInt() ?: 0
+                        if (productSoluong == 0) {
+                            throw Exception("Hết sản phẩm ${product.ten_sp}!")
+                        }
+                        if (productSoluong < cartItem.quantity) {
+                            throw Exception("Số lượng sản phẩm ${product.ten_sp} không đủ! Chỉ còn $productSoluong sản phẩm.")
+                        }
+                    }
+
+                    // Tách đơn hàng gộp thành các đơn hàng riêng lẻ
+                    val newOrderIds = mutableListOf<String>()
+                    cartItems.forEach { cartItem ->
+                        val product = cartItem.product!!
+                        val price = if (product.giam_gia > 0) {
+                            product.gia_sp - (product.gia_sp * product.giam_gia / 100)
+                        } else {
+                            product.gia_sp
+                        }
+                        val totalPrice = (price * cartItem.quantity).toLong()
+
+                        val querySnapshot = db.collection("orders")
+                            .whereEqualTo("userId", userId)
+                            .whereEqualTo("productId", product.id_sanpham)
+                            .get()
+                            .await()
+
+                        var maxIndex = 0
+                        for (document in querySnapshot.documents) {
+                            val docId = document.id
+                            val index = docId.substringAfterLast("_").toIntOrNull() ?: 0
+                            if (index > maxIndex) {
+                                maxIndex = index
+                            }
+                        }
+
+                        val newIndex = maxIndex + 1
+                        val newOrderId = "${userId}_${product.id_sanpham}_$newIndex"
+                        val newOrder = Order(
+                            orderId = newOrderId,
+                            userId = userId,
+                            productId = product.id_sanpham,
+                            product = product,
+                            quantity = cartItem.quantity,
+                            totalPrice = totalPrice,
+                            paymentMethod = "VNPay",
+                            status = "Đang xử lí",
+                            bookingDate = Timestamp.now(),
+                            deliveryDate = Timestamp.now()
+                        )
+
+                        db.collection("orders")
+                            .document(newOrderId)
+                            .set(newOrder)
+                            .await()
+
+                        val productRef = db.collection("product").document(product.ten_sp)
+                        val productSnapshot = productRef.get().await()
+                        if (productSnapshot.exists()) {
+                            product.soluong -= cartItem.quantity
+                            product.so_luong_ban += cartItem.quantity
+                            productRef.update(
+                                "soluong", product.soluong,
+                                "so_luong_ban", product.so_luong_ban
+                            ).await()
+                        }
+
+                        db.collection("cart")
+                            .document("${userId}_${cartItem.cartIndex}")
+                            .delete()
+                            .await()
+                        newOrderIds.add(newOrderId)
+                        Log.d("OrderViewModel", "Created separate order: $newOrderId")
+                    }
+
+                    // Xóa toàn bộ giỏ hàng của user sau khi thanh toán thành công
+                    val cartSnapshot = db.collection("cart")
+                        .whereEqualTo("userId", userId)
+                        .get()
+                        .await()
+                    cartSnapshot.documents.forEach { document ->
+                        db.collection("cart")
+                            .document(document.id)
+                            .delete()
+                            .await()
+                        Log.d("OrderViewModel", "Deleted cart item: ${document.id}")
+                    }
+
+                    // Xóa đơn hàng gộp sau khi tách
+                    db.collection("combined_orders")
+                        .document(orderId)
+                        .delete()
+                        .await()
+                    Log.d("OrderViewModel", "Deleted combined order: $orderId")
+
+                    _vnpayUrls.value = emptyList()
+                    _pendingOrders.value = emptyList()
+                    clearPendingOrdersFromPrefs(context)
+                    _successMessage.value = "Thanh toán online thành công!"
+                    onSuccess()
+                } else {
+                    // Đơn hàng đơn lẻ (productId != -1)
                     VNPayHelper.updateOrderStatusAfterPayment(
                         orderId = orderId,
                         onSuccess = {
                             viewModelScope.launch {
-                                // Cập nhật trạng thái đơn hàng trong orders
-                                db.collection("orders")
+                                val product = order.product ?: throw Exception("Sản phẩm không hợp lệ!")
+                                val productRef = db.collection("product").document(product.ten_sp)
+                                val productSnapshot = productRef.get().await()
+                                if (!productSnapshot.exists()) {
+                                    throw Exception("Sản phẩm ${product.ten_sp} không tồn tại trong kho!")
+                                }
+                                val productSoluong = productSnapshot.getLong("soluong")?.toInt() ?: 0
+                                if (productSoluong == 0) {
+                                    throw Exception("Hết sản phẩm ${product.ten_sp}!")
+                                }
+                                if (productSoluong < order.quantity) {
+                                    throw Exception("Số lượng sản phẩm ${product.ten_sp} không đủ! Chỉ còn $productSoluong sản phẩm.")
+                                }
+
+                                product.soluong -= order.quantity
+                                product.so_luong_ban += order.quantity
+                                productRef.update(
+                                    "soluong", product.soluong,
+                                    "so_luong_ban", product.so_luong_ban
+                                ).await()
+
+                                // Xóa đơn hàng trong combined_orders
+                                db.collection("combined_orders")
                                     .document(orderId)
-                                    .update("status", "Đang xử lí")
+                                    .delete()
                                     .await()
-                                _vnpayUrls.value = _vnpayUrls.value.filter { it.first != orderId }
+                                Log.d("OrderViewModel", "Deleted combined order: $orderId")
+
+                                _vnpayUrls.value = emptyList()
                                 _pendingOrders.value = emptyList()
                                 clearPendingOrdersFromPrefs(context)
                                 _successMessage.value = "Thanh toán online thành công!"
@@ -366,8 +638,6 @@ class OrderViewModel : ViewModel() {
                             onError(error)
                         }
                     )
-                } else {
-                    throw Exception("Trạng thái đơn hàng không hợp lệ hoặc tổng tiền không đúng")
                 }
             } catch (e: Exception) {
                 if (e.message?.contains("UNAVAILABLE") == true) {
@@ -392,18 +662,23 @@ class OrderViewModel : ViewModel() {
             try {
                 Log.d("OrderViewModel", "Attempting to cancel order: $orderId")
                 var order = _pendingOrders.value.find { it.orderId == orderId }
+                val combinedOrderSnapshot = db.collection("combined_orders")
+                    .document(orderId)
+                    .get()
+                    .await()
+
                 if (order == null) {
                     val savedOrders = loadPendingOrders(context)
                     order = savedOrders.find { it.orderId == orderId }
                     if (order == null) {
-                        val snapshot = db.collection("orders")
-                            .document(orderId)
-                            .get()
-                            .await()
-                        order = snapshot.toObject(Order::class.java)
+                        if (!combinedOrderSnapshot.exists()) {
+                            throw Exception("Không tìm thấy đơn hàng với ID: $orderId")
+                        }
+                        order = combinedOrderSnapshot.toObject(Order::class.java)
                         if (order == null) {
                             throw Exception("Không tìm thấy đơn hàng với ID: $orderId")
                         }
+                        _pendingOrders.value = listOf(order)
                         Log.d("OrderViewModel", "Restored order from Firestore for cancellation: $orderId")
                     } else {
                         _pendingOrders.value = listOf(order)
@@ -411,8 +686,23 @@ class OrderViewModel : ViewModel() {
                     }
                 }
 
-                val finalOrder = order.copy(status = "Đã hủy")
-                db.collection("orders")
+                val items = combinedOrderSnapshot.get("items") as? List<Map<String, Any>> ?: emptyList()
+
+                val finalOrder = hashMapOf(
+                    "orderId" to order.orderId,
+                    "userId" to order.userId,
+                    "productId" to order.productId,
+                    "product" to order.product,
+                    "quantity" to order.quantity,
+                    "totalPrice" to order.totalPrice,
+                    "paymentMethod" to order.paymentMethod,
+                    "status" to "Đã hủy",
+                    "bookingDate" to order.bookingDate,
+                    "deliveryDate" to order.deliveryDate,
+                    "items" to items
+                )
+
+                db.collection("combined_orders")
                     .document(orderId)
                     .set(finalOrder)
                     .await()
@@ -438,19 +728,18 @@ class OrderViewModel : ViewModel() {
     fun setPendingOrders(cartItems: List<CartItem>, context: Context) {
         val userId = auth.currentUser?.uid ?: return
         val totalPrice = cartItems.sumOf { cartItem ->
-            val product = cartItem.product!!
+            val product = cartItem.product ?: return@sumOf 0L
             val price = if (product.giam_gia > 0) {
                 product.gia_sp - (product.gia_sp * product.giam_gia / 100)
             } else {
                 product.gia_sp
             }
-            price * cartItem.quantity
+            (price * cartItem.quantity).toLong()
         }
 
-        // Lấy index từ Firestore cho productId = -1
         viewModelScope.launch {
             try {
-                val querySnapshot = db.collection("orders")
+                val querySnapshot = db.collection("combined_orders")
                     .whereEqualTo("userId", userId)
                     .whereEqualTo("productId", -1)
                     .get()
@@ -475,7 +764,9 @@ class OrderViewModel : ViewModel() {
                     quantity = cartItems.sumOf { it.quantity },
                     totalPrice = totalPrice,
                     paymentMethod = "",
-                    status = "Đang xử lí"
+                    status = "Đang xử lí",
+                    bookingDate = Timestamp.now(),
+                    deliveryDate = Timestamp.now()
                 )
                 _pendingOrders.value = listOf(order)
                 savePendingOrders(context, listOf(order))
@@ -493,9 +784,8 @@ class OrderViewModel : ViewModel() {
         } else {
             product.gia_sp
         }
-        val totalPrice = price * quantity
+        val totalPrice = (price * quantity).toLong()
 
-        // Lấy index từ Firestore
         viewModelScope.launch {
             try {
                 val querySnapshot = db.collection("orders")
@@ -523,7 +813,9 @@ class OrderViewModel : ViewModel() {
                     quantity = quantity,
                     totalPrice = totalPrice,
                     paymentMethod = "",
-                    status = "Đang xử lí"
+                    status = "Đang xử lí",
+                    bookingDate = Timestamp.now(),
+                    deliveryDate = Timestamp.now()
                 )
                 _pendingOrders.value = listOf(order)
                 savePendingOrders(context, listOf(order))
@@ -553,7 +845,12 @@ class OrderViewModel : ViewModel() {
         val prefs = context.getSharedPreferences("ShopThucungPrefs", Context.MODE_PRIVATE)
         val ordersJson = prefs.getString("pending_orders", "[]") ?: "[]"
         val gson = Gson()
-        return gson.fromJson(ordersJson, Array<Order>::class.java).toList()
+        return try {
+            gson.fromJson(ordersJson, Array<Order>::class.java).toList()
+        } catch (e: Exception) {
+            Log.e("OrderViewModel", "Error parsing pending orders: ${e.message}")
+            emptyList()
+        }
     }
 
     fun clearPendingOrdersFromPrefs(context: Context) {
